@@ -1,0 +1,102 @@
+# PHYSMOL Default Configuration
+# Target: ModelScope AMD ROCm server (20 cores, 200GB RAM, 298GB VRAM)
+
+hardware:
+  target: modelscope_amd_rocm
+  cpu_cores: 20
+  ram_gb: 200
+  vram_gb: 298
+  # PyTorch ROCm still appears as device "cuda".
+  device: rocm
+  num_workers: 16
+  mixed_precision: bf16
+
+vsa:
+  dim: 4096
+  float_precision: float32  # 16KB per vector
+
+snn:
+  num_neurons: 512
+  v_threshold: 1.0
+  v_reset: 0.0
+  tau_mem: 20.0      # ms
+  tau_ref: 2.0       # ms
+  dt: 1.0            # ms
+
+  stdp:
+    a_plus: 0.01     # LTP learning rate
+    a_minus: 0.012   # LTD learning rate
+    tau_plus: 20.0   # pre-trace decay (ms)
+    tau_minus: 20.0  # post-trace decay (ms)
+
+  three_factor:
+    tau_e: 100.0     # eligibility trace decay (ms)
+    eta: 0.001       # learning rate
+
+lnn:
+  coord_dim: 6       # generalized coordinates
+  hidden_dim: 128
+  optimizer: hybrid  # l-bfgs + adam alternating
+
+alignment:
+  lang_dim: 300      # word vector dimension (e.g., fastText)
+  temperature: 0.07  # InfoNCE temperature
+  interval: 100      # alignment every N steps
+
+world_model:
+  l2_threshold: 0.1  # prediction error to activate L2
+  l3_threshold: 0.5  # error to activate L3
+  l2_sim_steps: 10   # simulation horizon for L2
+
+motivation:
+  novelty_weight: 0.35
+  uncertainty_weight: 0.25
+  progress_weight: 0.40
+
+cognition:
+  abstract_reasoning_depth: 4
+  enable_theory_of_mind: true
+
+training:
+  lr: 0.001
+  batch_size: 32
+  max_episodes: 10000
+  alignment_interval: 100
+
+memory:
+  l1_capacity: 1024
+  l2_buckets: 4096
+  l3_path: ""        # empty = disabled
+  long_term_path: ./checkpoints/long_term_memory.json
+  store_embeddings: false
+
+transfer:
+  enable_cross_domain_schemas: true
+  default_source_domain: blocks
+  default_target_domain: chess
+
+datasets:
+  # Optional ModelScope dataset config. Requires: pip install modelscope
+  language_dataset_id: ""
+  language_subset_name: ""
+  language_split: train
+  abstract_dataset_id: ""
+  abstract_subset_name: ""
+  abstract_split: train
+  local_language_jsonl: ""
+  local_abstract_jsonl: ""
+  physics_trace_jsonl: ""
+
+simulation:
+  engine: mujoco
+  timestep: 0.01
+  parallel_envs: 4
+
+# Unified Training Pipeline
+unified:
+  phase1_epochs: 500
+  phase1_batch_size: 32
+  phase2_scenarios: 50
+  phase3_epochs: 100
+  phase3_lr: 0.001
+  save_path: ./checkpoints
