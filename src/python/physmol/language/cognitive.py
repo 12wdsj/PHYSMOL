@@ -28,12 +28,14 @@ from .text_encoder import TextToVSA
 from .semantic_parser import SemanticParser
 from .reasoning import ReasoningEngine
 from .responder import Responder
+from .vsa_generator import VSALanguageGenerator
 from .conversation import DialogueState
 from .theory_of_mind import TheoryOfMindModel
 from .abstract_tasks import AbstractTaskReasoner
 from ..motivation import IntrinsicMotivationSystem
 from ..long_term_memory import LongTermMemory
 from ..transfer import CrossDomainTransferEngine
+from ..knowledge_acquisition import KnowledgeAcquisition
 
 
 class CognitiveInterface:
@@ -55,12 +57,16 @@ class CognitiveInterface:
         self.reasoning_engine = ReasoningEngine(
             self.recipe_store, causal_graph, lgnn)
         self.responder = Responder()
+        self.generator = VSALanguageGenerator(self.primitives, self.recipe_store)
         self.dialogue = DialogueState()
         self.theory_of_mind = TheoryOfMindModel()
         self.motivation = IntrinsicMotivationSystem()
         self.long_term_memory = LongTermMemory(self.text_encoder)
         self.transfer_engine = CrossDomainTransferEngine()
         self.abstract_task_reasoner = AbstractTaskReasoner()
+
+        # Knowledge acquisition (automatic learning)
+        self.knowledge = KnowledgeAcquisition(self.primitives, self.recipe_store)
 
         # Conversation history
         self._history: List[Dict[str, str]] = []
@@ -109,7 +115,7 @@ class CognitiveInterface:
         Full pipeline:
           1. Parse text -> intent + attributes + matching objects
           2. Route to appropriate reasoning method
-          3. Generate natural language response
+          3. Generate natural language response using VSA generator
 
         Args:
             text: natural language input
@@ -121,17 +127,36 @@ class CognitiveInterface:
 
         conversation = self.dialogue.conversational_response(text)
         if conversation is not None:
-            response = self.responder.respond(parsed, conversation)
+            response = self.generator.generate_from_reasoning(parsed, conversation)
             self._record_turn(text, "conversation", response, parsed)
             return response
 
         # Step 2: Reason based on intent
         intent = parsed["intent"]
 
+        # Check for explanation request first (higher priority than code generation)
+        if intent == "explanation" and self._looks_like_code_concept(text):
+            parsed["intent"] = "explanation"
+            concept = self._extract_code_concept(text)
+            result = self.reasoning_engine.explain_code_concept(concept)
+            response = self.generator.generate_from_reasoning(parsed, result)
+            self._record_turn(text, "explanation", response, parsed)
+            return response
+
+        # Check for code generation request
+        if self._looks_like_code_request(text):
+            parsed["intent"] = "code"
+            # Use reasoning engine to analyze the code task
+            code_reasoning = self.reasoning_engine.reason_about_code(text)
+            result = {"kind": "code", "text": text, "reasoning": code_reasoning}
+            response = self.generator.generate_from_reasoning(parsed, result)
+            self._record_turn(text, "code", response, parsed)
+            return response
+
         tom_update = self.theory_of_mind.update_from_text(text)
         if tom_update is not None and not self._looks_like_question(text):
             parsed["intent"] = "social"
-            response = self.responder.respond(parsed, tom_update)
+            response = self.generator.generate_from_reasoning(parsed, tom_update)
             self._record_turn(text, "social", response, parsed)
             return response
 
@@ -163,8 +188,8 @@ class CognitiveInterface:
         else:
             result = {"error": "unknown intent"}
 
-        # Step 3: Generate response
-        response = self.responder.respond(parsed, result)
+        # Step 3: Generate response using VSA generator
+        response = self.generator.generate_from_reasoning(parsed, result)
 
         # Record in history
         self._record_turn(text, parsed["intent"], response, parsed)
@@ -315,6 +340,37 @@ class CognitiveInterface:
         return self.long_term_memory.retrieve(query, top_k=top_k)
 
     # ------------------------------------------------------------------
+    # Knowledge acquisition (automatic learning)
+    # ------------------------------------------------------------------
+
+    def teach_concept(self, term: str, category: str = "",
+                      definition: str = "", examples: Optional[List[str]] = None,
+                      related: Optional[List[str]] = None):
+        """Teach the system a new concept.
+
+        Args:
+            term: the concept term (e.g., "recursion", "公平")
+            category: VSA category (auto-inferred if empty)
+            definition: what this concept means
+            examples: example usages
+            related: related concepts
+        """
+        return self.knowledge.learn_concept(
+            term, category, definition, examples, related)
+
+    def learn_from_text(self, text: str):
+        """Extract and learn concepts from text."""
+        return self.knowledge.learn_from_text(text)
+
+    def get_concept_info(self, term: str):
+        """Get information about a learned concept."""
+        return self.knowledge.get_concept(term)
+
+    def list_learned_concepts(self, category: Optional[str] = None):
+        """List all learned concepts."""
+        return self.knowledge.list_concepts(category)
+
+    # ------------------------------------------------------------------
     # Conversation management
     # ------------------------------------------------------------------
 
@@ -341,6 +397,7 @@ class CognitiveInterface:
             "motivation": self.motivation.summary(),
             "long_term_memory": self.long_term_memory.stats(),
             "transfer_domains": list(self.transfer_engine.domains.keys()),
+            "knowledge": self.knowledge.get_stats(),
         }
 
     def record_learning_signal(self, context_key: str, prediction_error: float,
@@ -435,3 +492,58 @@ class CognitiveInterface:
         ]
         zh_cues = ["证明", "定理", "数学", "法律推理", "道德判断", "伦理", "法院", "合同"]
         return any(cue in lower for cue in cues) or any(cue in text for cue in zh_cues)
+
+    def _looks_like_code_request(self, text: str) -> bool:
+        """Detect if the user is asking for code generation."""
+        lower = text.lower()
+        # Don't match if it's an explanation request
+        if any(lower.startswith(prefix) for prefix in ["explain", "what is", "describe", "定义"]):
+            return False
+        code_cues = [
+            "write code", "write a function", "write a class", "write a program",
+            "implement", "code for", "function that", "class that",
+            "python code", "javascript code", "c code",
+            "write a", "write an",
+            "写代码", "写函数", "写类", "实现", "编程", "代码",
+            "写一个", "写个", "编写",
+            "binary search", "linked list", "graph traversal",
+            "quicksort", "mergesort", "bfs", "dfs",
+        ]
+        return any(cue in lower for cue in code_cues)
+
+    def _looks_like_code_concept(self, text: str) -> bool:
+        """Detect if the user is asking about a code/algorithm concept."""
+        lower = text.lower()
+        code_concepts = [
+            "quicksort", "merge sort", "binary search", "bfs", "dfs",
+            "dynamic programming", "linked list", "stack", "queue",
+            "graph", "tree", "recursion", "algorithm",
+            "快速排序", "归并排序", "二分查找", "动态规划", "链表", "栈", "队列",
+            "图", "树", "递归", "算法",
+        ]
+        return any(concept in lower for concept in code_concepts)
+
+    def _extract_code_concept(self, text: str) -> str:
+        """Extract the code concept from an explanation request."""
+        lower = text.lower()
+        concept_map = {
+            "quicksort": "quicksort",
+            "merge sort": "mergesort",
+            "binary search": "binary search",
+            "bfs": "bfs",
+            "dfs": "dfs",
+            "dynamic programming": "dynamic programming",
+            "linked list": "linked list",
+            "stack": "stack",
+            "queue": "queue",
+            "graph": "graph",
+            "tree": "tree",
+            "recursion": "recursion",
+            "algorithm": "algorithm",
+        }
+        for keyword, concept in concept_map.items():
+            if keyword in lower:
+                return concept
+        # Default: extract the last meaningful word
+        words = lower.split()
+        return words[-1] if words else "unknown"

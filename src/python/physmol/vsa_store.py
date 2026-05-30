@@ -49,6 +49,7 @@ class AttributePrimitivePool:
 
     def _init_defaults(self):
         """Initialize the fundamental attribute categories."""
+        # Physical attributes
         self.add_category("shape", {
             "sphere": None, "cube": None, "cylinder": None,
             "capsule": None, "cone": None, "flat": None,
@@ -77,6 +78,37 @@ class AttributePrimitivePool:
         })
         self.add_category("state", {
             "solid": None, "liquid": None, "gas": None,
+        })
+
+        # Code/algorithm attributes (unified concept space)
+        self.add_category("algorithm", {
+            "sort": None, "search": None, "traverse": None,
+            "iterate": None, "recurse": None, "divide": None,
+            "conquer": None, "greedy": None, "dynamic": None,
+            "backtrack": None,
+        })
+        self.add_category("data_structure", {
+            "array": None, "list": None, "stack": None,
+            "queue": None, "tree": None, "graph": None,
+            "hash": None, "heap": None, "linked_list": None,
+            "deque": None,
+        })
+        self.add_category("operation", {
+            "create": None, "read": None, "update": None,
+            "delete": None, "insert": None, "remove": None,
+            "find": None, "compare": None, "swap": None,
+            "merge": None, "split": None, "map": None,
+            "filter": None, "reduce": None,
+        })
+        self.add_category("control_flow", {
+            "loop": None, "conditional": None, "branch": None,
+            "exception": None, "async": None, "callback": None,
+            "recursion": None, "iteration": None,
+        })
+        self.add_category("complexity", {
+            "constant": None, "logarithmic": None, "linear": None,
+            "linearithmic": None, "quadratic": None, "cubic": None,
+            "exponential": None,
         })
 
     def add_category(self, category: str,

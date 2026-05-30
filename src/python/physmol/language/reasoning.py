@@ -1,10 +1,12 @@
-"""ReasoningEngine: Causal reasoning, counterfactuals, and action planning.
+"""ReasoningEngine: Causal reasoning, counterfactuals, action planning, and code reasoning.
 
 Uses the causal graph and LGNN physics engine to answer questions like:
   - "What happens if I drop the ball?" -> simulate trajectory
   - "What if the mass doubled?" -> counterfactual simulation
   - "Push the block to the top" -> action sequence planning
   - "Explain elasticity" -> decompose concept from VSA
+  - "Explain quicksort" -> algorithm explanation with complexity
+  - "Compare BFS vs DFS" -> algorithm comparison
 """
 
 import numpy as np
@@ -349,6 +351,291 @@ class ReasoningEngine:
                 f"5. Verify final position",
             ],
         }
+
+    # ------------------------------------------------------------------
+    # Code reasoning (unified with physical reasoning via VSA)
+    # ------------------------------------------------------------------
+
+    def explain_code_concept(self, concept: str) -> dict:
+        """Explain a code/algorithm concept using VSA knowledge.
+
+        This mirrors explain_concept() but for programming concepts.
+        Both physical and code concepts exist in the same VSA space.
+        """
+        code_explanations = {
+            "quicksort": {
+                "definition": "A divide-and-conquer sorting algorithm that partitions around a pivot",
+                "algorithm": "Choose pivot, partition into smaller/larger, recurse on both halves",
+                "complexity": {"best": "O(n log n)", "average": "O(n log n)", "worst": "O(n^2)"},
+                "vsa_attrs": ["algorithm_sort", "algorithm_divide", "algorithm_conquer"],
+                "use_cases": ["general purpose sorting", "in-place sorting"],
+            },
+            "merge sort": {
+                "definition": "A stable, divide-and-conquer sorting algorithm that divides the array in half, sorts each half, and merges them",
+                "algorithm": "Divide array in half, recursively sort both halves, merge sorted halves",
+                "complexity": {"best": "O(n log n)", "average": "O(n log n)", "worst": "O(n log n)"},
+                "vsa_attrs": ["algorithm_sort", "algorithm_divide", "algorithm_merge"],
+                "use_cases": ["stable sorting", "external sorting", "linked list sorting"],
+            },
+            "heap sort": {
+                "definition": "A comparison-based sorting algorithm using a binary heap data structure",
+                "algorithm": "Build max heap, extract max repeatedly to get sorted array",
+                "complexity": {"best": "O(n log n)", "average": "O(n log n)", "worst": "O(n log n)"},
+                "vsa_attrs": ["algorithm_sort", "data_structure_heap"],
+                "use_cases": ["in-place sorting", "guaranteed O(n log n)"],
+            },
+            "binary search": {
+                "definition": "A search algorithm that finds an element in a sorted array by repeatedly dividing the search interval in half",
+                "algorithm": "Compare with middle element, eliminate half, repeat",
+                "complexity": {"best": "O(1)", "average": "O(log n)", "worst": "O(log n)"},
+                "vsa_attrs": ["algorithm_search", "algorithm_divide"],
+                "use_cases": ["searching sorted data", "finding boundaries"],
+            },
+            "bfs": {
+                "definition": "Breadth-First Search explores nodes level by level using a queue",
+                "algorithm": "Start at root, visit all neighbors, then neighbors' neighbors",
+                "complexity": {"time": "O(V + E)", "space": "O(V)"},
+                "vsa_attrs": ["algorithm_traverse", "data_structure_queue", "data_structure_graph"],
+                "use_cases": ["shortest path in unweighted graph", "level-order traversal"],
+            },
+            "dfs": {
+                "definition": "Depth-First Search explores as far as possible along each branch before backtracking",
+                "algorithm": "Start at root, go deep, backtrack when stuck",
+                "complexity": {"time": "O(V + E)", "space": "O(V)"},
+                "vsa_attrs": ["algorithm_traverse", "algorithm_backtrack", "data_structure_graph"],
+                "use_cases": ["topological sort", "cycle detection", "path finding"],
+            },
+            "dynamic programming": {
+                "definition": "Optimization technique that solves complex problems by breaking them into overlapping subproblems",
+                "algorithm": "Identify subproblems, solve bottom-up or top-down with memoization",
+                "complexity": {"time": "varies", "space": "O(n) to O(n^2)"},
+                "vsa_attrs": ["algorithm_dynamic", "algorithm_divide"],
+                "use_cases": ["optimization problems", "sequence alignment", "knapsack"],
+            },
+            "linked list": {
+                "definition": "A linear data structure where elements are stored in nodes linked by pointers",
+                "algorithm": "Each node contains data and a pointer to the next node",
+                "complexity": {"access": "O(n)", "search": "O(n)", "insert": "O(1)", "delete": "O(1)"},
+                "vsa_attrs": ["data_structure_linked_list", "data_structure_list"],
+                "use_cases": ["dynamic size", "frequent insert/delete", "implementation of stacks/queues"],
+            },
+            "stack": {
+                "definition": "A LIFO (Last-In-First-Out) data structure",
+                "algorithm": "Push to add, Pop to remove from top",
+                "complexity": {"push": "O(1)", "pop": "O(1)", "peek": "O(1)"},
+                "vsa_attrs": ["data_structure_stack", "operation_insert", "operation_remove"],
+                "use_cases": ["function calls", "undo operations", "expression evaluation"],
+            },
+            "queue": {
+                "definition": "A FIFO (First-In-First-Out) data structure",
+                "algorithm": "Enqueue to add, Dequeue to remove from front",
+                "complexity": {"enqueue": "O(1)", "dequeue": "O(1)"},
+                "vsa_attrs": ["data_structure_queue", "data_structure_deque"],
+                "use_cases": ["BFS", "task scheduling", "buffer"],
+            },
+            "graph": {
+                "definition": "A collection of nodes (vertices) connected by edges",
+                "algorithm": "Represented as adjacency list or adjacency matrix",
+                "complexity": {"adjacency_list": "O(V+E) space", "adjacency_matrix": "O(V^2) space"},
+                "vsa_attrs": ["data_structure_graph", "data_structure_tree"],
+                "use_cases": ["networks", "social connections", "pathfinding"],
+            },
+            "recursion": {
+                "definition": "A technique where a function calls itself to solve smaller subproblems",
+                "algorithm": "Base case + recursive case",
+                "complexity": {"time": "varies", "space": "O(depth) for call stack"},
+                "vsa_attrs": ["control_flow_recursion", "algorithm_recurse"],
+                "use_cases": ["tree traversal", "divide and conquer", "backtracking"],
+            },
+            "dijkstra": {
+                "definition": "A greedy algorithm that finds the shortest path from a source node to all other nodes in a weighted graph",
+                "algorithm": "Use a priority queue to always process the closest unvisited node",
+                "complexity": {"time": "O((V + E) log V)", "space": "O(V)"},
+                "vsa_attrs": ["algorithm_greedy", "data_structure_graph", "data_structure_heap"],
+                "use_cases": ["shortest path in weighted graph", "network routing", "GPS navigation"],
+            },
+            "binary tree": {
+                "definition": "A hierarchical data structure where each node has at most two children",
+                "algorithm": "Nodes organized by value: left < parent < right for BST",
+                "complexity": {"access": "O(log n) avg", "search": "O(log n) avg", "insert": "O(log n) avg"},
+                "vsa_attrs": ["data_structure_tree", "data_structure_graph"],
+                "use_cases": ["binary search trees", "expression trees", "heaps"],
+            },
+            "hash map": {
+                "definition": "A data structure that maps keys to values using a hash function",
+                "algorithm": "Hash key to find bucket, handle collisions with chaining or open addressing",
+                "complexity": {"get": "O(1) avg", "put": "O(1) avg", "delete": "O(1) avg"},
+                "vsa_attrs": ["data_structure_hash", "operation_find"],
+                "use_cases": ["caching", "counting", "lookup tables"],
+            },
+            "lru cache": {
+                "definition": "A cache that evicts the least recently used item when full",
+                "algorithm": "Combine hash map for O(1) access with doubly-linked list for O(1) reorder",
+                "complexity": {"get": "O(1)", "put": "O(1)"},
+                "vsa_attrs": ["data_structure_hash", "data_structure_linked_list"],
+                "use_cases": ["page replacement", "database caching", "web caching"],
+            },
+        }
+
+        concept_lower = concept.lower()
+        explanation = None
+        for key, val in code_explanations.items():
+            if key in concept_lower or concept_lower in key:
+                explanation = val
+                break
+
+        if explanation is None:
+            explanation = {
+                "definition": f"'{concept}' is a programming concept in the PHYSMOL knowledge base.",
+                "algorithm": "Further exploration is needed to fully understand this concept.",
+                "complexity": {},
+                "vsa_attrs": [],
+                "use_cases": [],
+            }
+
+        # Find related objects/code patterns in recipe store
+        related_patterns = []
+        if explanation.get("vsa_attrs"):
+            related_patterns = self.recipe_store.find_by_attributes(
+                explanation["vsa_attrs"], top_k=5)
+
+        return {
+            "concept": concept,
+            "kind": "code_explanation",
+            "explanation": explanation,
+            "related_patterns": related_patterns,
+        }
+
+    def compare_algorithms(self, algo1: str, algo2: str) -> dict:
+        """Compare two algorithms using VSA concept decomposition.
+
+        Uses the unified VSA space to compare physical and code concepts alike.
+        """
+        exp1 = self.explain_code_concept(algo1)
+        exp2 = self.explain_code_concept(algo2)
+
+        comparison = {
+            "algorithms": [algo1, algo2],
+            "kind": "algorithm_comparison",
+            algo1: exp1.get("explanation", {}),
+            algo2: exp2.get("explanation", {}),
+            "comparison_points": [],
+        }
+
+        # Compare complexity
+        c1 = exp1.get("explanation", {}).get("complexity", {})
+        c2 = exp2.get("explanation", {}).get("complexity", {})
+        if c1 and c2:
+            comparison["comparison_points"].append({
+                "aspect": "complexity",
+                algo1: c1,
+                algo2: c2,
+            })
+
+        # Compare use cases
+        u1 = exp1.get("explanation", {}).get("use_cases", [])
+        u2 = exp2.get("explanation", {}).get("use_cases", [])
+        if u1 and u2:
+            comparison["comparison_points"].append({
+                "aspect": "use_cases",
+                algo1: u1,
+                algo2: u2,
+            })
+
+        # Compare VSA attributes (shared concepts)
+        attrs1 = set(exp1.get("explanation", {}).get("vsa_attrs", []))
+        attrs2 = set(exp2.get("explanation", {}).get("vsa_attrs", []))
+        shared = attrs1.intersection(attrs2)
+        if shared:
+            comparison["shared_concepts"] = list(shared)
+
+        return comparison
+
+    def reason_about_code(self, task: str) -> dict:
+        """Reason about a coding task using VSA concepts.
+
+        This is the code equivalent of predict() - given a task description,
+        determine what algorithms/data structures are needed.
+        """
+        task_lower = task.lower()
+
+        # Detect algorithm type
+        algorithm_hints = {
+            "sort": ["sort", "order", "arrange", "排序"],
+            "search": ["search", "find", "look for", "查找", "搜索"],
+            "traverse": ["traverse", "visit", "遍历"],
+            "graph": ["graph", "node", "edge", "图", "节点"],
+            "tree": ["tree", "binary tree", "树"],
+            "list": ["list", "array", "链表", "数组"],
+            "stack": ["stack", "push", "pop", "栈"],
+            "queue": ["queue", "enqueue", "dequeue", "队列"],
+        }
+
+        detected_algorithms = []
+        for algo, hints in algorithm_hints.items():
+            if any(h in task_lower for h in hints):
+                detected_algorithms.append(algo)
+
+        # Detect data structure
+        ds_hints = {
+            "array": ["array", "list", "数组"],
+            "linked_list": ["linked list", "链表"],
+            "stack": ["stack", "栈"],
+            "queue": ["queue", "队列"],
+            "graph": ["graph", "图"],
+            "tree": ["tree", "树"],
+            "hash": ["hash", "dictionary", "map", "哈希"],
+        }
+
+        detected_ds = []
+        for ds, hints in ds_hints.items():
+            if any(h in task_lower for h in hints):
+                detected_ds.append(ds)
+
+        # Build reasoning result
+        result = {
+            "kind": "code_reasoning",
+            "task": task,
+            "detected_algorithms": detected_algorithms,
+            "detected_data_structures": detected_ds,
+            "suggestions": [],
+        }
+
+        # Generate suggestions based on detected patterns
+        if "sort" in detected_algorithms:
+            result["suggestions"].append({
+                "algorithm": "quicksort",
+                "reason": "Efficient general-purpose sort, O(n log n) average",
+                "vsa_attrs": ["algorithm_sort", "algorithm_divide"],
+            })
+        if "search" in detected_algorithms:
+            if "sorted" in task_lower or "order" in task_lower:
+                result["suggestions"].append({
+                    "algorithm": "binary_search",
+                    "reason": "O(log n) search on sorted data",
+                    "vsa_attrs": ["algorithm_search", "algorithm_divide"],
+                })
+            else:
+                result["suggestions"].append({
+                    "algorithm": "linear_search",
+                    "reason": "O(n) search, works on any data",
+                    "vsa_attrs": ["algorithm_search", "algorithm_iterate"],
+                })
+        if "graph" in detected_algorithms or "graph" in detected_ds:
+            if "shortest" in task_lower or "level" in task_lower:
+                result["suggestions"].append({
+                    "algorithm": "bfs",
+                    "reason": "BFS finds shortest path in unweighted graphs",
+                    "vsa_attrs": ["algorithm_traverse", "data_structure_queue"],
+                })
+            else:
+                result["suggestions"].append({
+                    "algorithm": "dfs",
+                    "reason": "DFS is simpler for path finding and cycle detection",
+                    "vsa_attrs": ["algorithm_traverse", "algorithm_backtrack"],
+                })
+
+        return result
 
     # ------------------------------------------------------------------
     # Internal helpers

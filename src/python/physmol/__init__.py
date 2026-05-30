@@ -21,6 +21,7 @@ from .perception import (
     TactileEncoder, OlfactoryEncoder, ProprioceptiveEncoder
 )
 from .lnn import LagrangianNetwork
+from .knowledge_acquisition import KnowledgeAcquisition
 
 # VSA Recipe Store (correct philosophy: recipe-based, not database)
 from .vsa_store import AttributePrimitivePool, RecipeStore, ConceptSynthesizer
@@ -28,9 +29,15 @@ from .vsa_store import AttributePrimitivePool, RecipeStore, ConceptSynthesizer
 # Language Cognitive Layer
 from .language import (
     CognitiveInterface, TextToVSA, SemanticParser, ReasoningEngine, Responder,
-    AbstractConceptReasoner, TheoryOfMindModel, DialogueState,
-    AbstractTaskReasoner,
+    VSALanguageGenerator, AbstractConceptReasoner, TheoryOfMindModel,
+    DialogueState, AbstractTaskReasoner,
 )
+
+# Enhanced language encoder (optional, for large vocabulary support)
+try:
+    from .language.enhanced_encoder import EnhancedTextEncoder
+except ImportError:
+    pass
 
 # Unified Training Pipeline (requires PyTorch LGNN dependencies)
 try:
