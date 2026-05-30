@@ -14,8 +14,9 @@ PHYSMOL emulates how infants learn about the world: not by consuming massive lab
                            ┌─────────────────────────────────┐
                            │      Language Cognitive Layer    │
                            │  TextToVSA ─ SemanticParser     │
-                           │  ReasoningEngine ─ Responder    │
-                           │  TheoryOfMind ─ AbstractReasoner│
+                           │  ReasoningEngine ─ VSAGenerator │
+                           │  TheoryOfMind ─ CodeReasoning   │
+                           │  KnowledgeAcquisition           │
                            └──────────┬──────────┬───────────┘
                                       │          │
                           InfoNCE     │          │   Causal Graph
@@ -78,15 +79,32 @@ Leaky Integrate-and-Fire neurons with bit-compressed spike states (4096 neurons 
 
 ### Language Cognitive Layer
 
-Full pipeline from natural language to grounded physical reasoning:
+Full pipeline from natural language to grounded physical and code reasoning:
 
-- **TextToVSA**: tokenization, word vectors, positional encoding, optional sentence-transformer backend
-- **SemanticParser**: intent classification (predict/counterfactual/explain/plan/chat), attribute extraction, object matching via resonance
-- **ReasoningEngine**: physics prediction, counterfactual reasoning, concept explanation, action planning
-- **Responder**: template-based natural language generation
+- **TextToVSA / EnhancedTextEncoder**: tokenization, word vectors, positional encoding, optional sentence-transformer backend, fastText/Word2Vec/GloVe pre-trained vectors, jieba Chinese tokenization
+- **SemanticParser**: intent classification (predict/counterfactual/explain/plan/chat/code), attribute extraction, object matching via resonance
+- **ReasoningEngine**: physics prediction, counterfactual reasoning, concept explanation, action planning, **code reasoning** (explain algorithms, compare data structures, suggest solutions)
+- **VSALanguageGenerator**: VSA-driven language generation (replaces template Responder), code generation with 20+ patterns (quicksort, BFS, linked list, LRU cache, etc.)
 - **TheoryOfMind**: belief-desire-intention modeling for other agents
 - **AbstractReasoner**: multi-hop inference over abstract concepts (fairness, justice, democracy)
 - **AbstractTaskReasoner**: domain-specific reasoning for math proofs, legal cases, moral judgment
+- **KnowledgeAcquisition**: automatic concept learning from text and interaction, vocabulary expansion
+
+### Unified VSA Concept Space
+
+Physical and code concepts share the same VSA vector space:
+
+```
+Physical attributes          Code attributes
+─────────────────           ─────────────────
+shape (sphere, cube...)     algorithm (sort, search, traverse...)
+color (red, blue...)        data_structure (array, list, stack...)
+material (metal, wood...)   operation (create, read, update...)
+elasticity (rigid...)       control_flow (loop, conditional...)
+mass (light, heavy...)      complexity (constant, logarithmic...)
+```
+
+This enables cross-domain reasoning: the system understands that "sort" and "gravity" are both concepts that can be explained, compared, and composed.
 
 ### Hierarchical World Model
 
@@ -104,6 +122,7 @@ A `CuriositySignal` quantifies prediction uncertainty to trigger higher decision
 - **Long-Term Memory**: episodic, factual, and experience memory with VSA-based retrieval and consolidation
 - **Cross-Domain Transfer**: schema-based transfer between domains (e.g., blocks to chess)
 - **Multimodal Perception**: vision, audio, tactile, olfactory, and proprioceptive encoders with MuJoCo integration
+- **Knowledge Acquisition**: automatic concept learning from text, interactive teaching, vocabulary expansion
 
 ---
 
@@ -155,11 +174,15 @@ PHYSMOL/
 │       ├── abstract_training.py    # AbstractCognitionTrainer (proof, legal, moral)
 │       ├── abstract_train.py       # CLI for abstract cognition training
 │       │
+│       ├── knowledge_acquisition.py # Automatic concept learning from text/interaction
+│       │
 │       └── language/               # Language cognitive layer
 │           ├── text_encoder.py     # TextToVSA, WordLexicon (Chinese support)
+│           ├── enhanced_encoder.py # Enhanced encoder with fastText/sentence-transformers
+│           ├── vsa_generator.py    # VSA-driven language generation + code patterns
 │           ├── semantic_parser.py  # Intent classification + attribute extraction
-│           ├── reasoning.py        # Causal reasoning engine
-│           ├── responder.py        # Template-based NLG
+│           ├── reasoning.py        # Causal + code reasoning engine
+│           ├── responder.py        # Template-based NLG (legacy)
 │           ├── cognitive.py        # CognitiveInterface (unified API)
 │           ├── conversation.py     # DialogueState, DialogueTurn
 │           ├── theory_of_mind.py   # TheoryOfMindModel, AgentMind
@@ -175,7 +198,8 @@ PHYSMOL/
 │   └── test_cognitive_extensions.py # Abstract reasoning, motivation, ToM, memory, transfer
 │
 ├── scripts/
-│   └── modelscope_abstract_training.sh
+│   ├── modelscope_abstract_training.sh
+│   └── cloud_train.sh            # Cloud server one-command training script
 │
 ├── docs/
 │   └── MODELSCOPE_TRAINING.md      # ModelScope cloud deployment guide
@@ -278,6 +302,92 @@ ci.query("Push the cube to the top")
 # Counterfactual reasoning
 ci.query("What if the ball was heavier?")
 # -> "More inertia, harder to accelerate, same fall speed, greater impact force"
+```
+
+### Code Generation
+
+PHYSMOL can generate code from natural language descriptions, using VSA pattern matching:
+
+```python
+# Code generation
+ci.query("Write a function called quicksort that sorts a list")
+# -> def quicksort(arr):
+#        if len(arr) <= 1: return arr
+#        pivot = arr[len(arr) // 2]
+#        ...
+
+ci.query("Implement a binary search")
+# -> def binary_search(arr, target):
+#        lo, hi = 0, len(arr) - 1
+#        ...
+
+ci.query("Write a class called Stack with push and pop methods")
+# -> class Stack:
+#        def __init__(self): self._items = []
+#        def push(self, item): ...
+#        def pop(self): ...
+
+# Chinese code generation
+ci.query("写一个函数实现二分查找")
+# -> def binary_search(arr, target): ...
+
+# Code explanation
+ci.query("Explain quicksort")
+# -> **quicksort**
+#    Definition: A divide-and-conquer sorting algorithm...
+#    Complexity: best O(n log n), worst O(n^2)
+#    Use cases: general purpose sorting, in-place sorting
+```
+
+### Knowledge Acquisition
+
+PHYSMOL can learn new concepts from text and interaction:
+
+```python
+# Teach a concept explicitly
+ci.teach_concept(
+    term="recursion",
+    category="algorithm",
+    definition="A technique where a function calls itself",
+    examples=["factorial", "fibonacci", "tree traversal"],
+    related=["divide and conquer", "stack"]
+)
+
+# Learn concepts from text automatically
+text = """
+A neural network is a machine learning model inspired by biological neurons.
+Deep learning refers to neural networks with many layers.
+Backpropagation is the algorithm used to train neural networks.
+"""
+learned = ci.learn_from_text(text)
+# -> Learns: neural network, deep learning, backpropagation, ...
+
+# Query learned concepts
+info = ci.get_concept_info("recursion")
+# -> LearnedConcept(term="recursion", category="algorithm", ...)
+
+# List all learned concepts
+concepts = ci.list_learned_concepts("algorithm")
+```
+
+### Enhanced Language Encoder
+
+For production use with large vocabulary:
+
+```python
+from physmol.language.enhanced_encoder import EnhancedTextEncoder
+
+encoder = EnhancedTextEncoder(vsa_dim=4096)
+
+# Load pre-trained word vectors (covers ~100,000 words per language)
+encoder.load_pretrained_vectors("./vectors/cc.zh.300.vec")  # Chinese
+encoder.load_pretrained_vectors("./vectors/cc.en.300.vec")  # English
+
+# Load sentence-transformers for context-aware encoding
+encoder.init_sentence_transformer("paraphrase-multilingual-MiniLM-L12-v2")
+
+# Encode any text
+vec = encoder.encode("快速排序算法的时间复杂度是 O(n log n)")
 ```
 
 ### VSA Recipe Store
@@ -489,6 +599,29 @@ python -m physmol.progress_server --port 7860
 # Open http://localhost:7860 in browser
 ```
 
+### Cloud Server Training
+
+One-command training script for cloud deployment (ModelScope, AutoDL, etc.):
+
+```bash
+# Full training (auto-downloads word vectors + all phases)
+DEVICE=cuda bash scripts/cloud_train.sh all
+
+# Individual steps
+bash scripts/cloud_train.sh setup      # Install dependencies
+bash scripts/cloud_train.sh vectors    # Download pre-trained word vectors
+bash scripts/cloud_train.sh phase1     # Physics learning only
+bash scripts/cloud_train.sh language   # Language training only
+bash scripts/cloud_train.sh abstract   # Abstract cognition only
+```
+
+Environment variables:
+- `PROJECT_DIR`: Project directory (default: `/mnt/workspace/PHYSMOL`)
+- `DEVICE`: Device (auto, cuda, rocm, cpu)
+- `EPOCHS`: Training epochs (default: 500)
+
+See [docs/MODELSCOPE_TRAINING.md](docs/MODELSCOPE_TRAINING.md) for ModelScope-specific instructions.
+
 ---
 
 ## Configuration
@@ -577,12 +710,16 @@ See `config/default.yaml` for the complete reference with all options.
 | `language/cognitive.py` | `CognitiveInterface` | Unified natural language API |
 | `language/text_encoder.py` | `TextToVSA` | Text to VSA vector encoding |
 | `language/text_encoder.py` | `WordLexicon` | Word vector vocabulary with Chinese support |
+| `language/enhanced_encoder.py` | `EnhancedTextEncoder` | Large vocabulary encoder with fastText/sentence-transformers |
+| `language/vsa_generator.py` | `VSALanguageGenerator` | VSA-driven language generation + code patterns |
+| `language/vsa_generator.py` | `CodePattern` | Code generation pattern definition |
 | `language/semantic_parser.py` | `SemanticParser` | Intent classification + attribute extraction |
-| `language/reasoning.py` | `ReasoningEngine` | Physics prediction, counterfactual, explanation, planning |
-| `language/responder.py` | `Responder` | Template-based response generation |
+| `language/reasoning.py` | `ReasoningEngine` | Physics + code reasoning, explanation, planning |
+| `language/responder.py` | `Responder` | Template-based response generation (legacy) |
 | `language/theory_of_mind.py` | `TheoryOfMindModel` | Belief-desire-intention modeling |
 | `language/abstract_reasoning.py` | `AbstractConceptReasoner` | Multi-hop abstract concept inference |
 | `language/abstract_tasks.py` | `AbstractTaskReasoner` | Math/legal/moral domain reasoning |
+| `knowledge_acquisition.py` | `KnowledgeAcquisition` | Automatic concept learning from text/interaction |
 
 ### CLI Entry Points
 
@@ -639,7 +776,9 @@ make clean      # Remove build artifacts
 | torch | >= 2.0 | LGNN physics engine, unified training |
 | mujoco | >= 2.3 | Physics simulation environment |
 | modelscope | >= 1.9 | ModelScope dataset loading |
-| sentence-transformers | any | Higher quality text encoding |
+| sentence-transformers | any | Higher quality text encoding (multilingual) |
+| jieba | any | Chinese tokenization for enhanced encoder |
+| gensim | any | Word2Vec binary format loading |
 | pytest | any | Running tests |
 
 ### Build Tools
@@ -659,6 +798,7 @@ make clean      # Remove build artifacts
 |----------|-------------|
 | [PHYSMOL.md](PHYSMOL.md) | Full theoretical paper (bilingual EN/ZH), 50+ pages of mathematical proofs |
 | [CHANGELOG.md](CHANGELOG.md) | Development log with architecture decisions |
+| [CHANGES.md](CHANGES.md) | Detailed change log for each update |
 | [AI_evaluation.md](AI_evaluation.md) | AI evaluation document |
 | [docs/MODELSCOPE_TRAINING.md](docs/MODELSCOPE_TRAINING.md) | ModelScope cloud deployment guide |
 
