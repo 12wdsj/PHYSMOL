@@ -71,7 +71,14 @@ def build_builtin_dialogues() -> List[Dict[str, str]]:
 # ---------------------------------------------------------------------------
 
 class DatasetLoader:
-    """Load training data from various sources."""
+    """Load training data from various sources.
+
+    Supported sources:
+      - ModelScope: modelscope dataset ID
+      - HuggingFace: huggingface dataset ID
+      - Local files: JSONL, JSON, TXT
+      - URLs: direct download links
+    """
 
     @staticmethod
     def load_modelscope(dataset_id: str, subset: str = "",
@@ -101,6 +108,60 @@ class DatasetLoader:
                 dialogues.append(dialogue)
 
         print(f"Loaded {len(dialogues)} dialogues from ModelScope")
+        return dialogues
+
+    @staticmethod
+    def load_huggingface(dataset_id: str, subset: str = "",
+                         split: str = "train", limit: int = 0) -> List[Dict]:
+        """Load dataset from HuggingFace."""
+        try:
+            from datasets import load_dataset
+        except ImportError:
+            print("datasets not installed. Install with: pip install datasets")
+            return []
+
+        print(f"Loading HuggingFace dataset: {dataset_id}...")
+        kwargs = {"path": dataset_id, "split": split}
+        if subset:
+            kwargs["name"] = subset
+
+        ds = load_dataset(**kwargs, trust_remote_code=True)
+
+        dialogues = []
+        for i, row in enumerate(ds):
+            if limit and i >= limit:
+                break
+
+            dialogue = DatasetLoader._normalize_row(row)
+            if dialogue:
+                dialogues.append(dialogue)
+
+        print(f"Loaded {len(dialogues)} dialogues from HuggingFace")
+        return dialogues
+
+    @staticmethod
+    def load_from_url(url: str, limit: int = 0) -> List[Dict]:
+        """Load dataset from a URL (JSONL or JSON)."""
+        import urllib.request
+        import tempfile
+
+        print(f"Downloading from: {url}...")
+
+        # Download to temp file
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".jsonl") as tmp:
+            urllib.request.urlretrieve(url, tmp.name)
+            tmp_path = tmp.name
+
+        # Determine format from URL
+        if url.endswith(".json") or url.endswith(".jsonl"):
+            dialogues = DatasetLoader.load_jsonl(tmp_path, limit)
+        else:
+            dialogues = DatasetLoader.load_jsonl(tmp_path, limit)
+
+        # Clean up
+        import os
+        os.remove(tmp_path)
+
         return dialogues
 
     @staticmethod
@@ -293,6 +354,8 @@ class DialogueTrainer:
             source: data source identifier
                 - "builtin": built-in seed dialogues
                 - "modelscope:<dataset_id>": ModelScope dataset
+                - "huggingface:<dataset_id>": HuggingFace dataset
+                - "url:<URL>": direct URL to JSONL/JSON file
                 - "<path>": local file path
         """
         dialogues = []
@@ -308,6 +371,19 @@ class DialogueTrainer:
                 split=kwargs.get("split", "train"),
                 limit=kwargs.get("limit", 0),
             )
+
+        elif source.startswith("huggingface:"):
+            dataset_id = source.split(":", 1)[1]
+            dialogues = DatasetLoader.load_huggingface(
+                dataset_id,
+                subset=kwargs.get("subset", ""),
+                split=kwargs.get("split", "train"),
+                limit=kwargs.get("limit", 0),
+            )
+
+        elif source.startswith("url:"):
+            url = source.split(":", 1)[1]
+            dialogues = DatasetLoader.load_from_url(url, kwargs.get("limit", 0))
 
         elif os.path.exists(source):
             if source.endswith(".jsonl"):
@@ -358,7 +434,11 @@ def main():
     # Data source
     parser.add_argument("--modelscope", default="",
                         help="ModelScope dataset ID (e.g., 'BelleGroup/train_1M_CN')")
-    parser.add_argument("--subset", default="", help="ModelScope subset name")
+    parser.add_argument("--huggingface", default="",
+                        help="HuggingFace dataset ID (e.g., 'tatsu-lab/alpaca')")
+    parser.add_argument("--url", default="",
+                        help="Direct URL to JSONL/JSON file")
+    parser.add_argument("--subset", default="", help="Dataset subset name")
     parser.add_argument("--split", default="train", help="Dataset split")
     parser.add_argument("--local", default="", help="Local data file path")
     parser.add_argument("--use-builtin", action="store_true",
@@ -387,6 +467,20 @@ def main():
             f"modelscope:{args.modelscope}",
             subset=args.subset,
             split=args.split,
+            limit=args.limit,
+            epochs=args.epochs,
+        )
+    elif args.huggingface:
+        trainer.train_from_source(
+            f"huggingface:{args.huggingface}",
+            subset=args.subset,
+            split=args.split,
+            limit=args.limit,
+            epochs=args.epochs,
+        )
+    elif args.url:
+        trainer.train_from_source(
+            f"url:{args.url}",
             limit=args.limit,
             epochs=args.epochs,
         )
