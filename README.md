@@ -90,6 +90,7 @@ Full pipeline from natural language to grounded physical and code reasoning:
 - **AbstractReasoner**: multi-hop inference over abstract concepts (fairness, justice, democracy)
 - **AbstractTaskReasoner**: domain-specific reasoning for math proofs, legal cases, moral judgment
 - **KnowledgeAcquisition**: automatic concept learning from text and interaction, vocabulary expansion
+- **ContinuousLearner**: learns from every interaction with user feedback, improves over time
 
 ### Unified VSA Concept Space
 
@@ -418,6 +419,40 @@ ci.generate_language(["ball", "gravity", "fall"], intent="explanation")
 
 ci.generate_language(["sort", "algorithm"], intent="explanation")
 # -> "快速排序是一种分治排序算法选择基准元素分区后递归排序"
+```
+
+### Continuous Learning
+
+The system learns from every interaction and improves over time:
+
+```python
+from physmol.language.cognitive import CognitiveInterface
+
+ci = CognitiveInterface(vsa_dim=4096)
+
+# Interact with the system
+response = ci.learner.interact("What is gravity?")
+# -> System generates response and learns from it
+
+# Provide feedback
+ci.learner.record_feedback("good")  # Reinforce this pattern
+
+# Or correct a bad response
+response = ci.learner.interact("Explain momentum")
+ci.learner.record_feedback("bad", "Momentum is mass times velocity: p = mv")
+
+# Check learning progress
+stats = ci.learner.get_stats()
+# -> {'total_interactions': 2, 'positive_feedback': 1, 'negative_feedback': 1, ...}
+
+# Save learned knowledge
+ci.learner.save("./learning_data")
+
+# Load on next session
+ci.learner.load("./learning_data")
+
+# Interactive learning session (CLI)
+ci.learner.interactive_session()
 ```
 
 ### VSA Recipe Store
