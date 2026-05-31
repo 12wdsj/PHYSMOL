@@ -85,6 +85,7 @@ Full pipeline from natural language to grounded physical and code reasoning:
 - **SemanticParser**: intent classification (predict/counterfactual/explain/plan/chat/code), attribute extraction, object matching via resonance
 - **ReasoningEngine**: physics prediction, counterfactual reasoning, concept explanation, action planning, **code reasoning** (explain algorithms, compare data structures, suggest solutions)
 - **VSALanguageGenerator**: VSA-driven language generation (replaces template Responder), code generation with 20+ patterns (quicksort, BFS, linked list, LRU cache, etc.)
+- **BrocaModule**: language production system simulating Broca's area, converts VSA concepts to natural language through learned patterns and grammar encoding
 - **TheoryOfMind**: belief-desire-intention modeling for other agents
 - **AbstractReasoner**: multi-hop inference over abstract concepts (fairness, justice, democracy)
 - **AbstractTaskReasoner**: domain-specific reasoning for math proofs, legal cases, moral judgment
@@ -175,11 +176,13 @@ PHYSMOL/
 │       ├── abstract_train.py       # CLI for abstract cognition training
 │       │
 │       ├── knowledge_acquisition.py # Automatic concept learning from text/interaction
+│       ├── dialogue_trainer.py    # Dialogue training pipeline + CLI
 │       │
 │       └── language/               # Language cognitive layer
 │           ├── text_encoder.py     # TextToVSA, WordLexicon (Chinese support)
 │           ├── enhanced_encoder.py # Enhanced encoder with fastText/sentence-transformers
 │           ├── vsa_generator.py    # VSA-driven language generation + code patterns
+│           ├── broca.py            # BrocaModule: language production (simulates Broca's area)
 │           ├── semantic_parser.py  # Intent classification + attribute extraction
 │           ├── reasoning.py        # Causal + code reasoning engine
 │           ├── responder.py        # Template-based NLG (legacy)
@@ -388,6 +391,33 @@ encoder.init_sentence_transformer("paraphrase-multilingual-MiniLM-L12-v2")
 
 # Encode any text
 vec = encoder.encode("快速排序算法的时间复杂度是 O(n log n)")
+```
+
+### Broca Language Production
+
+Train the language production module to generate natural language from VSA concepts:
+
+```python
+from physmol.language.cognitive import CognitiveInterface
+from physmol.dialogue_trainer import build_builtin_dialogues
+
+ci = CognitiveInterface(vsa_dim=4096)
+
+# Train from built-in dialogues
+ci.train_broca(dialogues=build_builtin_dialogues())
+
+# Train from local file
+ci.train_broca(data_path="./data/train.jsonl")
+
+# Train from ModelScope (auto-download)
+ci.train_broca_from_modelscope("BelleGroup/train_1M_CN", limit=10000)
+
+# Generate language from concepts
+ci.generate_language(["ball", "gravity", "fall"], intent="explanation")
+# -> "更重的球惯性更大更难加速但下落速度相同"
+
+ci.generate_language(["sort", "algorithm"], intent="explanation")
+# -> "快速排序是一种分治排序算法选择基准元素分区后递归排序"
 ```
 
 ### VSA Recipe Store
@@ -713,6 +743,9 @@ See `config/default.yaml` for the complete reference with all options.
 | `language/enhanced_encoder.py` | `EnhancedTextEncoder` | Large vocabulary encoder with fastText/sentence-transformers |
 | `language/vsa_generator.py` | `VSALanguageGenerator` | VSA-driven language generation + code patterns |
 | `language/vsa_generator.py` | `CodePattern` | Code generation pattern definition |
+| `language/broca.py` | `BrocaModule` | Language production system (simulates Broca's area) |
+| `language/broca.py` | `Vocabulary` | Word-ID mapping with special tokens |
+| `language/broca.py` | `GrammarEncoder` | Pattern learning from dialogue data |
 | `language/semantic_parser.py` | `SemanticParser` | Intent classification + attribute extraction |
 | `language/reasoning.py` | `ReasoningEngine` | Physics + code reasoning, explanation, planning |
 | `language/responder.py` | `Responder` | Template-based response generation (legacy) |
@@ -728,6 +761,7 @@ See `config/default.yaml` for the complete reference with all options.
 | `python -m physmol.unified_train` | 4-phase unified training pipeline |
 | `python -m physmol.lgnn_train` | LGNN standalone training |
 | `python -m physmol.abstract_train` | Abstract cognition training |
+| `python -m physmol.dialogue_trainer` | Broca language production training |
 | `python -m physmol.progress_server` | Training progress HTTP dashboard |
 
 ---
