@@ -37,6 +37,7 @@ from ..motivation import IntrinsicMotivationSystem
 from ..long_term_memory import LongTermMemory
 from ..transfer import CrossDomainTransferEngine
 from ..knowledge_acquisition import KnowledgeAcquisition
+from ..continuous_learning import ContinuousLearner
 
 
 class CognitiveInterface:
@@ -69,6 +70,9 @@ class CognitiveInterface:
 
         # Knowledge acquisition (automatic learning)
         self.knowledge = KnowledgeAcquisition(self.primitives, self.recipe_store)
+
+        # Continuous learning (learns from every interaction)
+        self.learner = ContinuousLearner(self)
 
         # Conversation history
         self._history: List[Dict[str, str]] = []
