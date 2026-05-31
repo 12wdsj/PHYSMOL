@@ -248,6 +248,23 @@ EOF
 }
 
 # ------------------------------------------------------------------
+# Broca Language Production Training
+# ------------------------------------------------------------------
+
+train_broca() {
+    log "Broca Language Production Training"
+
+    # Train from ModelScope dataset
+    python3 -m physmol.dialogue_trainer \
+        --modelscope BelleGroup/train_1M_CN \
+        --limit 10000 \
+        --epochs 3 \
+        --out-dir "$CHECKPOINT_DIR/broca"
+
+    log "Broca training complete."
+}
+
+# ------------------------------------------------------------------
 # Full pipeline
 # ------------------------------------------------------------------
 
@@ -261,6 +278,7 @@ train_all() {
     train_phase3
     train_abstract
     train_language
+    train_broca
 
     log "All training complete!"
     log "Checkpoints: $CHECKPOINT_DIR"
@@ -300,8 +318,12 @@ case "${1:-all}" in
         setup_environment
         train_language
         ;;
+    broca)
+        setup_environment
+        train_broca
+        ;;
     *)
-        echo "Usage: $0 {all|setup|vectors|phase1|phase2|phase3|abstract|language}"
+        echo "Usage: $0 {all|setup|vectors|phase1|phase2|phase3|abstract|language|broca}"
         echo ""
         echo "Environment variables:"
         echo "  PROJECT_DIR    - Project directory (default: /mnt/workspace/PHYSMOL)"

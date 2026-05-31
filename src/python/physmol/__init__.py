@@ -22,6 +22,7 @@ from .perception import (
 )
 from .lnn import LagrangianNetwork
 from .knowledge_acquisition import KnowledgeAcquisition
+from .dialogue_trainer import DialogueTrainer
 
 # VSA Recipe Store (correct philosophy: recipe-based, not database)
 from .vsa_store import AttributePrimitivePool, RecipeStore, ConceptSynthesizer

@@ -29,6 +29,7 @@ from .semantic_parser import SemanticParser
 from .reasoning import ReasoningEngine
 from .responder import Responder
 from .vsa_generator import VSALanguageGenerator
+from .broca import BrocaModule
 from .conversation import DialogueState
 from .theory_of_mind import TheoryOfMindModel
 from .abstract_tasks import AbstractTaskReasoner
@@ -58,6 +59,7 @@ class CognitiveInterface:
             self.recipe_store, causal_graph, lgnn)
         self.responder = Responder()
         self.generator = VSALanguageGenerator(self.primitives, self.recipe_store)
+        self.broca = BrocaModule(vsa_dim)
         self.dialogue = DialogueState()
         self.theory_of_mind = TheoryOfMindModel()
         self.motivation = IntrinsicMotivationSystem()
@@ -371,6 +373,36 @@ class CognitiveInterface:
         return self.knowledge.list_concepts(category)
 
     # ------------------------------------------------------------------
+    # Broca language production
+    # ------------------------------------------------------------------
+
+    def train_broca(self, dialogues: Optional[List[Dict]] = None,
+                    data_path: Optional[str] = None, epochs: int = 3):
+        """Train the Broca language production module.
+
+        Args:
+            dialogues: list of dialogue dicts with "input", "output", "intent"
+            data_path: path to training data file (JSONL/JSON/TXT)
+            epochs: training epochs
+        """
+        if dialogues:
+            self.broca.train_from_dialogue(dialogues)
+        elif data_path:
+            self.broca.train_from_file(data_path)
+
+    def train_broca_from_modelscope(self, dataset_id: str, limit: int = 10000,
+                                     epochs: int = 3):
+        """Train Broca from a ModelScope dataset."""
+        from ..dialogue_trainer import DialogueTrainer
+        trainer = DialogueTrainer(self.primitives.vsa_dim)
+        trainer.broca = self.broca
+        trainer.train_from_source(f"modelscope:{dataset_id}", limit=limit, epochs=epochs)
+
+    def generate_language(self, concepts: List[str], intent: str = "general") -> str:
+        """Generate language using the Broca module."""
+        return self.broca.produce(concepts, intent)
+
+    # ------------------------------------------------------------------
     # Conversation management
     # ------------------------------------------------------------------
 
@@ -395,6 +427,7 @@ class CognitiveInterface:
             "num_agents": len(self.theory_of_mind.agents),
             "dialogue": self.dialogue.context(),
             "motivation": self.motivation.summary(),
+            "broca": self.broca.get_stats(),
             "long_term_memory": self.long_term_memory.stats(),
             "transfer_domains": list(self.transfer_engine.domains.keys()),
             "knowledge": self.knowledge.get_stats(),
