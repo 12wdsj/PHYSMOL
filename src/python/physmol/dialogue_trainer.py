@@ -334,8 +334,7 @@ class DialogueTrainer:
 
             # Log progress
             self.progress.log(epoch + 1, epochs, "broca_training",
-                            message=f"Epoch {epoch + 1}",
-                            **stats)
+                            message=f"Epoch {epoch + 1}")
 
         elapsed = time.time() - start_time
         print(f"\nTraining complete in {elapsed:.1f}s")
