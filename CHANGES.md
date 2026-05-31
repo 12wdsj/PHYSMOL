@@ -1,5 +1,59 @@
 # PHYSMOL 变更日志
 
+## 2026-05-30: 持续学习 + Broca 语言生成 + 架构集成
+
+### 概述
+实现持续学习闭环系统，新增 Broca 语言生成模块，修复架构集成问题。
+
+### 新增文件
+
+| 文件 | 说明 |
+|------|------|
+| `src/python/physmol/language/broca.py` | Broca 语言生成模块（模拟布洛卡区） |
+| `src/python/physmol/dialogue_trainer.py` | 对话训练管道 + CLI |
+| `src/python/physmol/continuous_learning.py` | 持续学习模块 |
+
+### 修改文件
+
+| 文件 | 改动 |
+|------|------|
+| `src/python/physmol/language/cognitive.py` | 集成 Broca 和 ContinuousLearner |
+| `src/python/physmol/__init__.py` | 导出新模块 |
+| `scripts/cloud_train.sh` | 新增 broca 训练选项 |
+
+### 架构集成
+
+**问题**：学习发生在 Broca，但生成用的是 VSALanguageGenerator，两者断开。
+
+**修复**：闭环架构
+
+```
+用户 → ContinuousLearner.interact() → 生成响应
+                   ↓
+        ┌──────────┴──────────┐
+        ↓                     ↓
+  Broca 未训练           Broca 已训练
+  用 VSALanguageGenerator  用 Broca 生成
+        ↓                     ↓
+        └──────────┬──────────┘
+                   ↓
+          每次交互都教 Broca
+          (词汇、模式、概念)
+                   ↓
+          Broca 越来越强
+          逐渐接管生成
+```
+
+### 测试结果
+
+```
+初始状态:  Broca trained=False, patterns=0
+训练后:    Broca trained=True, patterns=7
+交互3次后: patterns=9, vocabulary 187→198
+```
+
+---
+
 ## 2026-05-30: 增强语言编码器 + 云训练脚本
 
 ### 概述

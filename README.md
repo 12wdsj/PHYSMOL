@@ -423,7 +423,24 @@ ci.generate_language(["sort", "algorithm"], intent="explanation")
 
 ### Continuous Learning
 
-The system learns from every interaction and improves over time:
+The system learns from every interaction and improves over time. This is a closed-loop system:
+
+```
+User → ContinuousLearner → Generate Response
+                ↓
+        ┌───────┴───────┐
+        ↓               ↓
+  Broca未训练      Broca已训练
+  用VSAGenerator   用Broca生成
+        ↓               ↓
+        └───────┬───────┘
+                ↓
+        每次交互都教Broca
+        (词汇、模式、概念)
+                ↓
+        Broca越来越强
+        逐渐接管生成
+```
 
 ```python
 from physmol.language.cognitive import CognitiveInterface
