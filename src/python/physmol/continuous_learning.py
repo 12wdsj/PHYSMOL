@@ -110,8 +110,16 @@ class ContinuousLearner:
         # Step 3: Detect intent
         intent = self._detect_intent(user_input)
 
-        # Step 4: Generate response using CognitiveInterface
+        # Step 4: Generate response
+        # Always generate via standard pipeline first
         response = self.ci.query(user_input)
+
+        # If Broca is trained, try to use it for better responses
+        if self.ci.broca._trained and len(self.ci.broca.grammar._patterns) > 3:
+            broca_response = self.ci.broca.produce(concepts, intent)
+            # Use Broca's response if it's substantial
+            if len(broca_response) >= len(response) * 0.5:
+                response = broca_response
 
         # Step 5: Record the interaction
         record = InteractionRecord(
@@ -196,16 +204,28 @@ class ContinuousLearner:
     def _learn_from_interaction(self, record: InteractionRecord):
         """Learn from a single interaction (self-supervised)."""
 
-        # Learn concept-word associations
+        # 1. Learn vocabulary from both input and response
+        for word in self.ci.text_encoder.tokenize(record.system_response.lower()):
+            self.ci.broca.vocab.add_word(word)
+
+        # 2. Learn concept-word associations
         for concept in record.concepts:
             words = self.ci.text_encoder.tokenize(record.user_input.lower())
             self.ci.broca.grammar.learn_concept_words(concept, words)
 
-        # Learn grammar patterns
+            # Also learn from response words
+            response_words = self.ci.text_encoder.tokenize(record.system_response.lower())
+            self.ci.broca.grammar.learn_concept_words(concept, response_words)
+
+        # 3. Learn grammar patterns from the response
         self.ci.broca.grammar.learn_from_sentence(
             record.system_response, record.intent)
 
-        # Track pattern success
+        # 4. Mark Broca as trained if it has enough patterns
+        if not self.ci.broca._trained and len(self.ci.broca.grammar._patterns) > 0:
+            self.ci.broca._trained = True
+
+        # 5. Track pattern success
         pattern_key = f"{record.intent}:{record.concepts}"
         if pattern_key not in self._pattern_success:
             self._pattern_success[pattern_key] = (0, 0)
