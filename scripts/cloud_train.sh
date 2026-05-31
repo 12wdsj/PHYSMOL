@@ -61,32 +61,67 @@ setup_environment() {
 }
 
 # ------------------------------------------------------------------
-# Download pre-trained vectors
+# Download pre-trained vectors (with mirror fallback)
 # ------------------------------------------------------------------
 
 download_vectors() {
     log "Downloading pre-trained word vectors..."
+    mkdir -p ./vectors
 
-    python3 << 'EOF'
-import sys
-sys.path.insert(0, "src/python")
+    # Check if vectors already exist
+    if [[ -f "./vectors/cc.zh.300.vec" ]] && [[ -f "./vectors/cc.en.300.vec" ]]; then
+        log "Vectors already exist, skipping download."
+        return 0
+    fi
 
-from physmol.language.enhanced_encoder import download_fasttext_vectors
+    # Try multiple mirrors
+    MIRRORS=(
+        "https://dl.fbaipublicfiles.com/fasttext/vectors-crawl"
+        "https://mirror.ghproxy.com/https://github.com/facebookresearch/fastText/raw/main/vectors/crawl"
+        "https://hf-mirror.com/datasets/facebook/fasttext/resolve/main/vectors-crawl"
+    )
 
-# Download Chinese vectors
-try:
-    path = download_fasttext_vectors("zh", "./vectors")
-    print(f"Chinese vectors: {path}")
-except Exception as e:
-    print(f"Failed to download Chinese vectors: {e}")
+    for lang in zh en; do
+        if [[ -f "./vectors/cc.${lang}.300.vec" ]]; then
+            log "cc.${lang}.300.vec already exists, skipping."
+            continue
+        fi
 
-# Download English vectors
-try:
-    path = download_fasttext_vectors("en", "./vectors")
-    print(f"English vectors: {path}")
-except Exception as e:
-    print(f"Failed to download English vectors: {e}")
-EOF
+        log "Downloading cc.${lang}.300.vec..."
+        downloaded=0
+
+        for mirror in "${MIRRORS[@]}"; do
+            url="${mirror}/cc.${lang}.300.vec.gz"
+            log "Trying: $url"
+
+            if command -v wget &> /dev/null; then
+                wget -q --timeout=30 --tries=2 -O "./vectors/cc.${lang}.300.vec.gz" "$url" 2>/dev/null
+            elif command -v curl &> /dev/null; then
+                curl -sL --connect-timeout 30 --retry 2 -o "./vectors/cc.${lang}.300.vec.gz" "$url" 2>/dev/null
+            else
+                error "Neither wget nor curl found. Install one."
+            fi
+
+            if [[ $? -eq 0 ]] && [[ -s "./vectors/cc.${lang}.300.vec.gz" ]]; then
+                log "Downloaded, extracting..."
+                gunzip -f "./vectors/cc.${lang}.300.vec.gz"
+                downloaded=1
+                log "cc.${lang}.300.vec ready."
+                break
+            else
+                warn "Failed from $mirror, trying next..."
+                rm -f "./vectors/cc.${lang}.300.vec.gz"
+            fi
+        done
+
+        if [[ $downloaded -eq 0 ]]; then
+            warn "All mirrors failed for cc.${lang}.300.vec"
+            warn "You can manually download from: https://dl.fbaipublicfiles.com/fasttext/vectors-crawl/cc.${lang}.300.vec.gz"
+            warn "Or use sentence-transformers instead (no download needed)"
+        fi
+    done
+
+    log "Vector download complete."
 }
 
 # ------------------------------------------------------------------

@@ -138,13 +138,21 @@ class SemanticParser:
         tokens = set(self.text_encoder.tokenize(text_lower))
 
         scores = {}
+        matched_keywords = {}
         for intent, keywords in INTENT_PATTERNS.items():
             score = 0
+            matched = []
             for kw in keywords:
                 if kw in text_lower:
-                    # Multi-word keywords get higher weight
-                    score += len(kw.split())
+                    # Multi-word keywords get higher weight with bonus
+                    weight = len(kw.split())
+                    # Bonus for multi-word matches (e.g., "what if" > "what" + "if")
+                    if weight > 1:
+                        weight *= 2
+                    score += weight
+                    matched.append(kw)
             scores[intent] = score
+            matched_keywords[intent] = matched
 
         if not scores or max(scores.values()) == 0:
             return "unknown", 0.0

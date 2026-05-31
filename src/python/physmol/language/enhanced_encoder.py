@@ -453,12 +453,14 @@ class EnhancedTextEncoder:
 # Convenience functions
 # ---------------------------------------------------------------------------
 
-def download_fasttext_vectors(lang: str = "zh", output_dir: str = "./vectors") -> str:
-    """Download fastText pre-trained vectors.
+def download_fasttext_vectors(lang: str = "zh", output_dir: str = "./vectors",
+                               mirrors: Optional[List[str]] = None) -> str:
+    """Download fastText pre-trained vectors with mirror fallback.
 
     Args:
         lang: language code ("zh" for Chinese, "en" for English)
         output_dir: directory to save vectors
+        mirrors: list of mirror URLs to try (optional)
 
     Returns: path to downloaded file
     """
@@ -468,32 +470,49 @@ def download_fasttext_vectors(lang: str = "zh", output_dir: str = "./vectors") -
 
     os.makedirs(output_dir, exist_ok=True)
 
-    urls = {
-        "zh": "https://dl.fbaipublicfiles.com/fasttext/vectors-crawl/cc.zh.300.vec.gz",
-        "en": "https://dl.fbaipublicfiles.com/fasttext/vectors-crawl/cc.en.300.vec.gz",
-        "ja": "https://dl.fbaipublicfiles.com/fasttext/vectors-crawl/cc.ja.300.vec.gz",
-        "ko": "https://dl.fbaipublicfiles.com/fasttext/vectors-crawl/cc.ko.300.vec.gz",
-    }
-
-    if lang not in urls:
-        raise ValueError(f"Unsupported language: {lang}. Choose from: {list(urls.keys())}")
-
-    url = urls[lang]
-    gz_path = os.path.join(output_dir, f"cc.{lang}.300.vec.gz")
     vec_path = os.path.join(output_dir, f"cc.{lang}.300.vec")
-
     if os.path.exists(vec_path):
         print(f"Vectors already exist: {vec_path}")
         return vec_path
 
-    print(f"Downloading {url}...")
-    urllib.request.urlretrieve(url, gz_path)
+    # Default mirrors
+    if mirrors is None:
+        mirrors = [
+            "https://dl.fbaipublicfiles.com/fasttext/vectors-crawl",
+            "https://mirror.ghproxy.com/https://github.com/facebookresearch/fastText/raw/main/vectors/crawl",
+            "https://hf-mirror.com/datasets/facebook/fasttext/resolve/main/vectors-crawl",
+        ]
 
-    print(f"Extracting to {vec_path}...")
-    with gzip.open(gz_path, 'rb') as f_in:
-        with open(vec_path, 'wb') as f_out:
-            shutil.copyfileobj(f_in, f_out)
+    gz_path = os.path.join(output_dir, f"cc.{lang}.300.vec.gz")
 
-    os.remove(gz_path)
-    print(f"Done: {vec_path}")
-    return vec_path
+    for mirror in mirrors:
+        url = f"{mirror}/cc.{lang}.300.vec.gz"
+        print(f"Trying: {url}")
+        try:
+            urllib.request.urlretrieve(url, gz_path)
+
+            # Verify download
+            if os.path.getsize(gz_path) < 1000:
+                print("Download too small, trying next mirror...")
+                os.remove(gz_path)
+                continue
+
+            print(f"Extracting to {vec_path}...")
+            with gzip.open(gz_path, 'rb') as f_in:
+                with open(vec_path, 'wb') as f_out:
+                    shutil.copyfileobj(f_in, f_out)
+
+            os.remove(gz_path)
+            print(f"Done: {vec_path}")
+            return vec_path
+
+        except Exception as e:
+            print(f"Failed: {e}")
+            if os.path.exists(gz_path):
+                os.remove(gz_path)
+            continue
+
+    raise RuntimeError(
+        f"Failed to download cc.{lang}.300.vec from all mirrors. "
+        f"Please download manually from: https://dl.fbaipublicfiles.com/fasttext/vectors-crawl/cc.{lang}.300.vec.gz"
+    )

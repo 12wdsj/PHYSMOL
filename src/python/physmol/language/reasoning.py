@@ -219,7 +219,7 @@ class ReasoningEngine:
             },
             "momentum": {
                 "definition": "Momentum is the product of mass and velocity: p = mv.",
-                "physics": "Momentum is conserved in all collisions. Force is the rate of change of momentum: F = dp/dt.",
+                "physics": "Momentum (p = mv) is conserved in all collisions. Force is the rate of change of momentum: F = dp/dt.",
                 "examples": ["Billiard ball collision", "Rocket propulsion", "Catching a ball"],
                 "vsa_attrs": ["mass_heavy", "mass_light"],
             },

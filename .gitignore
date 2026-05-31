@@ -30,3 +30,4 @@ Thumbs.db
 
 # L3 memory storage
 *.dat
+.codegraph/
