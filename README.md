@@ -271,6 +271,55 @@ python -m pytest tests/test_cognitive_extensions.py -v  # Cognitive extensions
 
 ---
 
+## Pre-trained Model
+
+A pre-trained Broca language model is included in `checkpoints/broca/model/`.
+
+### Quick Start with Pre-trained Model
+
+```python
+from physmol.language.cognitive import CognitiveInterface
+
+# Load pre-trained model
+ci = CognitiveInterface(vsa_dim=4096)
+ci.broca.load('./checkpoints/broca/model')
+
+# Physics reasoning
+print(ci.query('What is gravity?'))
+# -> **gravity**
+#    Definition: the force that attracts objects toward each other
+#    Physics: Objects accelerate downward at 9.8 m/s^2 near Earth's surface
+
+# Code explanation
+print(ci.query('Explain quicksort'))
+# -> **quicksort**
+#    Definition: A divide-and-conquer sorting algorithm that partitions around a pivot
+#    Complexity: best O(n log n), worst O(n^2)
+
+# Continuous learning
+response = ci.learner.interact('What is momentum?')
+ci.learner.record_feedback('good')  # Reinforce good responses
+ci.learner.save('./learning_data')  # Save learning progress
+```
+
+### Training Your Own Model
+
+```bash
+# Install dependencies
+pip install -e .
+pip install modelscope datasets
+
+# Train on cloud server (ModelScope)
+python -m physmol.dialogue_trainer --modelscope BelleGroup/train_1M_CN --limit 100000 --epochs 3
+
+# Or train locally with built-in data
+python -m physmol.dialogue_trainer --use-builtin --epochs 3
+```
+
+See [docs/MODELSCOPE_TRAINING.md](docs/MODELSCOPE_TRAINING.md) for cloud training guide.
+
+---
+
 ## Usage
 
 ### Language Cognitive Interface
