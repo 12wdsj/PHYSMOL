@@ -1,0 +1,12 @@
+{
+  "vocabulary_size": 124,
+  "trained": true,
+  "training_samples": 30,
+  "concept_cache_size": 0,
+  "grammar": {
+    "intents": 5,
+    "total_patterns": 10,
+    "transition_words": 114,
+    "concept_mappings": 9
+  }
+}
