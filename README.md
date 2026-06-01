@@ -1,10 +1,17 @@
 # PHYSMOL
 
-**Physical Isomorphism and Symbolic Binding for Embodied Concept Learning**
+PHYSMOL: A brain-inspired cognitive architecture that combines Vector Symbolic Architectures (VSA), Lagrangian Graph Neural Networks (LGNN), and Spiking Neural Networks (SNN) for grounded physical understanding and code generation.
 
-A neuro-symbolic cognitive architecture that enables machines to build grounded physical understanding from scratch through active exploration.
+Key Features:
+• Physics reasoning with causal understanding
+• Code generation from natural language
+• Continuous learning from user interaction
+• VSA-based concept representation
+• Pre-trained language model included
 
-PHYSMOL emulates how infants learn about the world: not by consuming massive labeled datasets, but by actively exploring physical environments, forming discrete concepts from continuous experience, and grounding language in physical interaction. It combines three computational substrates -- **Vector Symbolic Architectures (VSA)**, **Lagrangian Graph Neural Networks (LGNN)**, and **Spiking Neural Networks (SNN)** -- into a unified framework with a language cognitive layer on top.
+Quick Start:
+pip install -e .
+python -c "from physmol.language.cognitive import CognitiveInterface; ci = CognitiveInterface(vsa_dim=4096); ci.broca.load('./checkpoints/broca/model'); print(ci.query('What is gravity?'))"
 
 ---
 
