@@ -1,5 +1,44 @@
 # PHYSMOL 变更日志
 
+## 2026-06-01: 预训练模型发布 + 文档更新
+
+### 概述
+发布预训练 Broca 语言模型，更新 README 使用说明。
+
+### 新增内容
+
+| 文件 | 说明 |
+|------|------|
+| `checkpoints/broca/model/` | 预训练 Broca 语言模型 |
+
+### 更新内容
+
+| 文件 | 改动 |
+|------|------|
+| `README.md` | 新增预训练模型使用说明、训练指南 |
+
+### 模型信息
+
+| 指标 | 值 |
+|------|-----|
+| 词汇量 | 9,692 个词 |
+| 模式数 | 8,827 个 |
+| 训练数据 | BELLE 10,000 条对话 |
+| 物理训练 | LGNN + SNN (500 epochs) |
+| 语言对齐 | InfoNCE (100 epochs) |
+
+### 使用方法
+
+```python
+from physmol.language.cognitive import CognitiveInterface
+
+ci = CognitiveInterface(vsa_dim=4096)
+ci.broca.load('./checkpoints/broca/model')
+print(ci.query('What is gravity?'))
+```
+
+---
+
 ## 2026-05-30: 持续学习 + Broca 语言生成 + 架构集成
 
 ### 概述
