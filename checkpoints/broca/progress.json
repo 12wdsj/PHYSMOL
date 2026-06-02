@@ -1,0 +1,9 @@
+{
+  "step": 3,
+  "total_steps": 3,
+  "percent": 100.0,
+  "phase": "broca_training",
+  "metrics": {},
+  "message": "Epoch 3",
+  "timestamp": 1780226524.4072669
+}

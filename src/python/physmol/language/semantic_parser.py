@@ -14,36 +14,43 @@ from ..vsa_store import RecipeStore, ConceptSynthesizer, AttributePrimitivePool
 from .text_encoder import TextToVSA
 
 
-# Intent classification keywords
+# Intent classification keywords (English + Chinese)
 INTENT_PATTERNS = {
     "question": [
         "what", "where", "when", "how", "why", "which", "who",
         "does", "do", "did", "is", "are", "was", "were", "can",
-        "could", "would", "will", "should", "?"
+        "could", "would", "will", "should", "?",
+        "什么", "哪", "何时", "怎么", "为什么", "哪个", "谁",
+        "是否", "会", "能", "可以", "吗", "？"
     ],
     "command": [
         "put", "place", "move", "push", "pull", "lift", "drop",
         "stop", "start", "make", "create", "remove", "delete",
-        "turn", "rotate", "flip", "stack", "arrange"
+        "turn", "rotate", "flip", "stack", "arrange",
+        "放", "移动", "推", "拉", "举", "落", "停", "开始",
+        "创建", "删除", "旋转", "堆叠", "排列"
     ],
     "explanation": [
         "explain", "describe", "what is", "what are", "define",
         "tell me about", "how does", "how do", "why does",
-        "meaning of", "concept of"
+        "meaning of", "concept of",
+        "解释", "描述", "是什么", "什么是", "定义", "告诉我",
+        "怎么", "为什么", "意思", "概念"
     ],
     "counterfactual": [
         "what if", "what would", "if", "suppose", "imagine",
-        "instead", "changed", "different", "happen if", "如果", "假如"
+        "instead", "changed", "different", "happen if",
+        "如果", "假如", "假设", "要是", "会怎样"
     ],
     "abstract": [
         "fairness", "fair", "justice", "law", "democracy", "freedom",
-        "equality", "rights", "slavery", "wrong", "公平", "正义", "法律",
-        "民主", "自由", "平等", "权利", "奴隶制", "错误"
+        "equality", "rights", "slavery", "wrong",
+        "公平", "正义", "法律", "民主", "自由", "平等", "权利", "奴隶制", "错误"
     ],
     "social": [
         "believe", "thinks", "think", "knows", "intend", "intention",
-        "wants", "desire", "feel", "emotion", "false belief", "认为",
-        "相信", "知道", "意图", "想要", "希望", "情绪", "觉得"
+        "wants", "desire", "feel", "emotion", "false belief",
+        "认为", "相信", "知道", "意图", "想要", "希望", "情绪", "觉得"
     ],
 }
 

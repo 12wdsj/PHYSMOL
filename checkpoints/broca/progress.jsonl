@@ -1,0 +1,3 @@
+{"step": 1, "total_steps": 3, "percent": 33.333333333333336, "phase": "broca_training", "metrics": {}, "message": "Epoch 1", "timestamp": 1780226524.4009764}
+{"step": 2, "total_steps": 3, "percent": 66.66666666666667, "phase": "broca_training", "metrics": {}, "message": "Epoch 2", "timestamp": 1780226524.4041333}
+{"step": 3, "total_steps": 3, "percent": 100.0, "phase": "broca_training", "metrics": {}, "message": "Epoch 3", "timestamp": 1780226524.4072669}

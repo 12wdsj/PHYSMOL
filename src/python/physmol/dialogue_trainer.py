@@ -125,7 +125,11 @@ class DatasetLoader:
         if subset:
             kwargs["name"] = subset
 
-        ds = load_dataset(**kwargs, trust_remote_code=True)
+        try:
+            ds = load_dataset(**kwargs, trust_remote_code=True)
+        except TypeError:
+            # Newer versions of datasets don't support trust_remote_code
+            ds = load_dataset(**kwargs)
 
         dialogues = []
         for i, row in enumerate(ds):
