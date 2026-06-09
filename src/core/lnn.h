@@ -2,6 +2,7 @@
 #define PHYSMOL_LNN_H
 
 #include <stddef.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {

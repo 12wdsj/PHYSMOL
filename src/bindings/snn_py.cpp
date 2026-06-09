@@ -44,7 +44,7 @@ PYBIND11_MODULE(_snn, m) {
             auto buf = arr.request();
             if ((size_t)buf.shape[0] != s.num_neurons)
                 throw std::runtime_error("Size mismatch");
-            snn_spike_from_array(&s, buf.ptr);
+            snn_spike_from_array(&s, (const int *)buf.ptr);
         })
         .def("set", [](SpikeState &s, size_t id) { snn_spike_set(&s, id); })
         .def("get", [](const SpikeState &s, size_t id) { return snn_spike_get(&s, id); })
@@ -167,7 +167,7 @@ PYBIND11_MODULE(_snn, m) {
         }, "Reinforce edges between active nodes")
         .def("propagate", [](CausalGraph &g, size_t source, int steps) {
             py::array_t<float> activation({(py::ssize_t)g.max_nodes});
-            auto buf = activation.mutable_request();
+            auto buf = activation.request();
             memset(buf.ptr, 0, g.max_nodes * sizeof(float));
             ((float *)buf.ptr)[source] = 1.0f;
             causal_graph_propagate(&g, (float *)buf.ptr, source, steps);

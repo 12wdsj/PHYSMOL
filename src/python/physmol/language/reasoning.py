@@ -128,67 +128,45 @@ class ReasoningEngine:
 
     def counterfactual(self, subject: str, change: str,
                        context: Optional[Dict] = None) -> dict:
-        """Reason about a counterfactual scenario.
+        """Reason about a counterfactual scenario using compositional physics.
 
-        "What if the mass doubled?" -> heavier, falls same speed (Galileo),
-        but hits harder (more momentum), more inertia.
-
-        Args:
-            subject: what we're reasoning about
-            change: what property changes
+        Delegates to PhysicsCausalModel which propagates perturbations through
+        signed monomial dependencies (F=ma, p=mv, KE=½mv², etc.), so non-
+        obvious conclusions (e.g. Galileo: fall speed independent of mass)
+        emerge naturally rather than from hardcoded lookup tables.
         """
-        context = context or {}
+        from .physics_causal import parse_change, propagate, summarize
 
-        # Map common counterfactuals to physics reasoning
-        cf_rules = {
-            "mass": {
-                "heavier": "More inertia, harder to accelerate, same fall speed, greater impact force",
-                "lighter": "Less inertia, easier to accelerate, same fall speed, smaller impact force",
-                "double": "Twice the momentum at same velocity, twice the gravitational force, same acceleration",
-            },
-            "elasticity": {
-                "more_elastic": "Higher bounce coefficient, less energy lost per bounce",
-                "less_elastic": "Lower bounce, more energy lost as heat/sound",
-                "rigid": "No bounce, all kinetic energy converted to deformation/sound",
-            },
-            "shape": {
-                "sphere": "Rolls on inclines, minimal friction, smooth trajectory",
-                "cube": "Slides or tumbles, higher friction on flat faces, irregular trajectory",
-                "cylinder": "Rolls in one axis, slides in another",
-            },
-            "gravity": {
-                "stronger": "Faster acceleration, higher impact velocity, shorter fall time",
-                "weaker": "Slower acceleration, lower impact velocity, longer fall time",
-                "zero": "No falling, objects float, no weight",
-            },
-            "friction": {
-                "more": "Slower sliding, quicker stopping, more heat generated",
-                "less": "Faster sliding, longer before stopping, less heat",
-                "zero": "Perpetual sliding, no stopping, no heat from friction",
-            },
-        }
+        parsed = parse_change(change)
+        if parsed is not None:
+            base_qty, scale, _ = parsed
+            effects = propagate(base_qty, scale)
+            summary = summarize(subject, base_qty, scale, effects)
+            return {
+                "subject": subject,
+                "change": change,
+                "base_quantity": base_qty,
+                "scale": scale,
+                "effects": [
+                    {"quantity": e.quantity, "label": e.label,
+                     "direction": e.direction, "factor": e.factor}
+                    for e in effects
+                ],
+                "reasoning": summary,
+                "prediction": summary,
+            }
 
-        # Determine what changed
-        change_lower = change.lower()
-        reasoning = "No specific counterfactual rule matched."
-
-        for prop, scenarios in cf_rules.items():
-            if prop in change_lower:
-                for scenario, explanation in scenarios.items():
-                    if scenario in change_lower or any(w in change_lower for w in scenario.split("_")):
-                        reasoning = explanation
-                        break
-                break
-
-        # If no specific rule, generate general reasoning
-        if reasoning == "No specific counterfactual rule matched.":
-            reasoning = f"If {change} changed, the physical behavior of {subject} would be affected according to the relevant conservation laws and force relationships."
-
+        # Fallback: unknown perturbation
+        reasoning = (
+            f"Changing {change} would affect {subject} through the relevant "
+            "conservation laws and force relationships, but no specific "
+            "physics rule matched this perturbation."
+        )
         return {
             "subject": subject,
             "change": change,
             "reasoning": reasoning,
-            "prediction": f"If {change} were different for {subject}: {reasoning}",
+            "prediction": reasoning,
         }
 
     def explain_concept(self, concept: str) -> dict:

@@ -318,7 +318,7 @@ const VSAVector *vsa_codebook_lookup(const VSACodebook *cb, const char *name) {
             /* We need to return a VSAVector*, but we store flat data.
              * Caller should use vsa_codebook_nearest or access directly.
              * For safety, we use a thread-local static wrapper. */
-            static __thread VSAVector wrapper;
+            static __declspec(thread) VSAVector wrapper;
             wrapper.data = (float *)&cb->vectors[i * cb->dim];
             wrapper.dim = cb->dim;
             return &wrapper;

@@ -2,6 +2,13 @@
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
+#include <stdint.h>
+
+/* MSVC compatibility */
+#ifdef _MSC_VER
+#include <malloc.h>
+#define alloca _alloca
+#endif
 
 /* Simple xorshift64 */
 static uint64_t _lnn_xorshift64(uint64_t *state) {
@@ -132,7 +139,8 @@ void lnn_gradient(const LNNParams *params, const float *q, const float *q_dot,
 
     /* ∂L/∂q via finite differences */
     for (size_t i = 0; i < cd; i++) {
-        float q_plus[cd], q_minus[cd];
+        float *q_plus = (float *)alloca(cd * sizeof(float));
+        float *q_minus = (float *)alloca(cd * sizeof(float));
         memcpy(q_plus, q, cd * sizeof(float));
         memcpy(q_minus, q, cd * sizeof(float));
         q_plus[i] += eps;
@@ -145,7 +153,8 @@ void lnn_gradient(const LNNParams *params, const float *q, const float *q_dot,
 
     /* ∂L/∂q̇ via finite differences */
     for (size_t i = 0; i < cd; i++) {
-        float qd_plus[cd], qd_minus[cd];
+        float *qd_plus = (float *)alloca(cd * sizeof(float));
+        float *qd_minus = (float *)alloca(cd * sizeof(float));
         memcpy(qd_plus, q_dot, cd * sizeof(float));
         memcpy(qd_minus, q_dot, cd * sizeof(float));
         qd_plus[i] += eps;
@@ -173,7 +182,10 @@ void lnn_compute_acceleration(const LNNParams *params,
     float *H = (float *)alloca(cd * cd * sizeof(float));
     for (size_t i = 0; i < cd; i++) {
         for (size_t j = 0; j < cd; j++) {
-            float qd_pp[cd], qd_pm[cd], qd_mp[cd], qd_mm[cd];
+            float *qd_pp = (float *)alloca(cd * sizeof(float));
+            float *qd_pm = (float *)alloca(cd * sizeof(float));
+            float *qd_mp = (float *)alloca(cd * sizeof(float));
+            float *qd_mm = (float *)alloca(cd * sizeof(float));
             memcpy(qd_pp, q_dot, cd * sizeof(float));
             memcpy(qd_pm, q_dot, cd * sizeof(float));
             memcpy(qd_mp, q_dot, cd * sizeof(float));

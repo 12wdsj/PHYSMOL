@@ -84,7 +84,7 @@ class SpikingNetwork:
 
         # Step pre-synaptic population
         _snn.step_lif(self.pre_neurons, self.pre_spikes,
-                      self.weights, input_pre, self._params)
+                      self.weights, input_pre, self.params._params)
 
         # Compute post-synaptic input from pre spikes
         pre_arr = self.pre_spikes.to_array().astype(np.float32)
@@ -92,7 +92,7 @@ class SpikingNetwork:
 
         # Step post-synaptic population
         _snn.step_lif(self.post_neurons, self.post_spikes,
-                      self.weights, post_input.astype(np.float32), self._params)
+                      self.weights, post_input.astype(np.float32), self.params._params)
 
         return self.pre_spikes.to_array(), self.post_spikes.to_array()
 

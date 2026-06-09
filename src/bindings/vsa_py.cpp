@@ -145,13 +145,13 @@ PYBIND11_MODULE(_vsa, m) {
     }, "FPE encode 3D coordinate into hypervector");
 
     m.def("normalize", [](py::array_t<float> vec) {
-        auto buf = vec.mutable_request();
+        auto buf = vec.request();
         VSAVector v = {(float *)buf.ptr, (size_t)buf.shape[0]};
         vsa_normalize(&v);
     }, "Normalize vector to unit length (in-place)");
 
     m.def("quantize", [](py::array_t<float> vec, int bits) {
-        auto buf = vec.mutable_request();
+        auto buf = vec.request();
         VSAVector v = {(float *)buf.ptr, (size_t)buf.shape[0]};
         vsa_quantize_inplace(&v, bits);
     }, "Quantize vector in-place",

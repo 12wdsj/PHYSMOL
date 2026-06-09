@@ -4,6 +4,7 @@
 #include "../core/memory.h"
 
 namespace py = pybind11;
+using namespace pybind11::literals;
 
 PYBIND11_MODULE(_lnn, m) {
     m.doc() = "PHYSMOL Lagrangian Neural Network & Memory - C core bindings";

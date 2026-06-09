@@ -18,13 +18,13 @@ from .evolution import EvolutionRecorder, to_jsonable
 from .language.cognitive import CognitiveInterface
 
 
-DEFAULT_SYSTEM_PROMPT = """You are the natural-language shell for PHYSMOL.
-
-PHYSMOL is a neuro-symbolic cognitive architecture with physical reasoning,
-concept memory, long-term memory, and continuous learning.  Your job is to
-answer in a natural way while staying faithful to PHYSMOL tool results.  If the
-tool result is uncertain, say what is uncertain and suggest what data would help.
-Do not invent physical evidence that PHYSMOL did not provide.
+DEFAULT_SYSTEM_PROMPT = """You are PHYSMOL's voice. Answer the user's question using ONLY the JSON data below.
+Rules:
+- Be concise: 1-3 sentences max.
+- Do NOT dump raw JSON or list all attributes.
+- Focus on the key concept, formula, or answer the user asked for.
+- If the data says "unknown", say you don't know that concept yet.
+- Speak naturally. No "Based on the JSON..." or "The tool says...".
 """
 
 
@@ -39,6 +39,26 @@ CONCEPT_ALIASES = {
     "弹性": "elasticity",
     "惯性": "inertia",
     "力": "force",
+    "动量守恒": "momentum",
+    "动量守恒定律": "momentum",
+    "能量守恒": "energy",
+    "能量守恒定律": "energy",
+    "牛顿第一定律": "inertia",
+    "牛顿第二定律": "force",
+    "牛顿第三定律": "force",
+    "牛顿定律": "force",
+    "万有引力": "gravity",
+    "弹性碰撞": "elasticity",
+    "非弹性碰撞": "collision",
+    "重力势能": "energy",
+    "动能": "energy",
+    "势能": "energy",
+    "加速度": "force",
+    "速度": "momentum",
+    "质量": "inertia",
+    "碰撞": "collision",
+    "热力学": "energy",
+    "守恒定律": "energy",
     # Chinese code concepts
     "递归": "recursion",
     "快速排序": "quicksort",
@@ -55,6 +75,9 @@ CONCEPT_ALIASES = {
     "图": "graph",
     "二叉树": "binary tree",
     "哈希表": "hash map",
+    "冒泡排序": "quicksort",
+    "排序算法": "quicksort",
+    "搜索算法": "binary search",
 }
 
 
@@ -67,31 +90,31 @@ CODE_CONCEPTS = {
 
 @dataclass
 class SmallLLMClient:
-    """Optional HTTP client for local or hosted small LLM endpoints.
+    """HTTP client for Ollama /api/generate endpoint (default) or OpenAI-compatible APIs.
 
     Supported providers:
+      - ollama: Ollama native /api/generate endpoint (default, best for thinking models)
       - openai: OpenAI-compatible /v1/chat/completions endpoint
-      - ollama: Ollama /api/chat endpoint
     """
 
-    provider: str = "openai"
-    endpoint: str = "http://127.0.0.1:8000/v1/chat/completions"
-    model: str = "Qwen3-4B-Instruct"
+    provider: str = "ollama"
+    endpoint: str = "http://127.0.0.1:11434/api/generate"
+    model: str = "deepseek-r1:1.5b"
     api_key: str = ""
-    timeout: float = 60.0
+    timeout: float = 120.0
 
     @classmethod
-    def from_env(cls) -> Optional["SmallLLMClient"]:
+    def from_env(cls) -> "SmallLLMClient":
+        """Create client from env vars, falling back to Ollama defaults."""
         endpoint = os.environ.get("PHYSMOL_LLM_ENDPOINT", "").strip()
         model = os.environ.get("PHYSMOL_LLM_MODEL", "").strip()
-        provider = os.environ.get("PHYSMOL_LLM_PROVIDER", "openai").strip()
-        if not endpoint or not model:
-            return None
+        provider = os.environ.get("PHYSMOL_LLM_PROVIDER", "").strip()
         return cls(
-            provider=provider,
-            endpoint=endpoint,
-            model=model,
+            provider=provider or "ollama",
+            endpoint=endpoint or "http://127.0.0.1:11434/api/generate",
+            model=model or "deepseek-r1:1.5b",
             api_key=os.environ.get("PHYSMOL_LLM_API_KEY", ""),
+            timeout=120.0,
         )
 
     def chat(self, messages: List[Dict[str, str]], temperature: float = 0.3) -> str:
@@ -119,12 +142,25 @@ class SmallLLMClient:
         return body["choices"][0]["message"]["content"]
 
     def _chat_ollama(self, messages: List[Dict[str, str]], temperature: float) -> str:
+        import re as _re
+        # Convert OpenAI-style messages to Ollama Generate API format
+        system_parts = []
+        user_parts = []
+        for msg in messages:
+            role = msg.get("role", "user")
+            content = msg.get("content", "")
+            if role == "system":
+                system_parts.append(content)
+            else:
+                user_parts.append(content)
         payload = {
             "model": self.model,
-            "messages": messages,
+            "prompt": "\n".join(user_parts),
             "stream": False,
-            "options": {"temperature": temperature},
+            "options": {"temperature": temperature, "num_predict": 512},
         }
+        if system_parts:
+            payload["system"] = "\n".join(system_parts)
         data = json.dumps(payload).encode("utf-8")
         req = urllib.request.Request(
             self.endpoint,
@@ -134,7 +170,15 @@ class SmallLLMClient:
         )
         with urllib.request.urlopen(req, timeout=self.timeout) as resp:
             body = json.loads(resp.read().decode("utf-8"))
-        return body.get("message", {}).get("content", "")
+        # Generate API returns {"response": "...", "thinking": "..."}
+        # thinking model (deepseek-r1, qwen3) puts reasoning in "thinking"
+        # and final answer in "response".  Fall back to thinking if response is empty.
+        content = body.get("response", "").strip()
+        if not content:
+            content = body.get("thinking", "").strip()
+        # Strip <think>...</think> tags if still present
+        content = _re.sub(r"<think>.*?</think>", "", content, flags=_re.DOTALL).strip()
+        return content
 
 
 class PhysmolAgentBridge:
@@ -357,7 +401,7 @@ class PhysmolAgentBridge:
         try:
             response = self.llm_client.chat(messages)
         except (urllib.error.URLError, TimeoutError, KeyError, json.JSONDecodeError, OSError) as exc:
-            response = f"{base_response}\n\n[LLM unavailable: {exc}]"
+            response = f"{base_response}"
 
         self.recorder.record_tool_call(
             tool="llm_verbalize",

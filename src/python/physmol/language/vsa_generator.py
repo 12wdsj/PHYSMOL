@@ -632,16 +632,37 @@ class VSALanguageGenerator:
                             cause: str = "", details: Optional[List[str]] = None) -> str:
         """Generate a prediction response from VSA concepts."""
         desc = self._resolve_subject(subject)
-        cause_text = cause or "gravity"
+        cause_text = cause or "physics"
 
-        pattern = self.scaffolder.get_pattern("prediction")
-        result = self.scaffolder.fill_pattern(pattern, {
-            "adj": "",
-            "noun": desc,
-            "verb": "fall downward",
-            "cause": cause_text,
-            "verb_phrase": prediction,
-        })
+        # If the prediction text is already a full, meaningful sentence, use it directly
+        # Only wrap in template if it's a short fragment
+        if prediction and len(prediction) > 60:
+            result = prediction
+        else:
+            # Determine the right verb based on cause/prediction context
+            lower_pred = prediction.lower() if prediction else ""
+            lower_cause = cause_text.lower()
+            if "fall" in lower_pred or "drop" in lower_pred or "gravity" in lower_cause:
+                verb = "fall downward"
+            elif "slide" in lower_pred or "friction" in lower_cause:
+                verb = "decelerate and stop"
+            elif "bounce" in lower_pred or "elastic" in lower_cause:
+                verb = "bounce back"
+            elif "collide" in lower_pred or "momentum" in lower_cause or "collision" in lower_cause:
+                verb = "transfer momentum"
+            elif "roll" in lower_pred:
+                verb = "roll along the surface"
+            else:
+                verb = prediction if prediction else "respond according to its physical properties"
+
+            pattern = self.scaffolder.get_pattern("prediction")
+            result = self.scaffolder.fill_pattern(pattern, {
+                "adj": "",
+                "noun": desc,
+                "verb": verb,
+                "cause": cause_text,
+                "verb_phrase": prediction if prediction else verb,
+            })
 
         if details:
             result += "\n\nDetails:\n" + "\n".join(f"  - {d}" for d in details)
@@ -815,10 +836,15 @@ class VSALanguageGenerator:
                 desc = self.generate_description(best_obj)
                 subject = desc
 
+            # Extract cause from applicable rules
+            cause = "physics"
+            if result.get("applicable_rules"):
+                cause = result["applicable_rules"][0]
+
             return self.generate_prediction(
                 subject=subject,
                 prediction=result["prediction"],
-                cause=result.get("cause", "gravity"),
+                cause=cause,
                 details=details if details else None,
             )
 
@@ -830,6 +856,10 @@ class VSALanguageGenerator:
                     desc = self.generate_description(obj_id)
                     lines.append(f"  - {obj_id}: {desc} (score: {score:.2f})")
                 return f"I found {len(matches)} object(s) matching your description:\n" + "\n".join(lines)
+
+        # Check if the result is an explanation (from concept matching)
+        if result.get("explanation") and result.get("concept"):
+            return self._gen_explanation(parsed, result)
 
         return f"I couldn't find objects matching '{parsed.get('text', '')}' in my knowledge base. I may need to explore more."
 
@@ -850,6 +880,19 @@ class VSALanguageGenerator:
         # Check if this is a code explanation from reasoning engine
         if result.get("kind") == "code_explanation":
             return self._gen_code_explanation(result)
+
+        # Use explanation data from the result if available (e.g., from learned concepts)
+        explanation = result.get("explanation", {})
+        if explanation.get("definition"):
+            response = f"**{concept}**\n\n"
+            response += f"Definition: {explanation['definition']}\n\n"
+            if explanation.get("physics"):
+                response += f"Physics: {explanation['physics']}\n\n"
+            if explanation.get("examples"):
+                response += "Examples:\n"
+                for ex in explanation["examples"]:
+                    response += f"  - {ex}\n"
+            return response
 
         related = result.get("related_objects")
         return self.generate_explanation(concept, related)
@@ -939,13 +982,8 @@ class VSALanguageGenerator:
         return response
 
     def _gen_counterfactual(self, parsed: dict, result: dict) -> str:
-        """Generate a counterfactual response."""
-        return self.generate_counterfactual(
-            subject=result.get("subject", "the object"),
-            change=result.get("change", "different"),
-            reasoning=result.get("reasoning", ""),
-            prediction=result.get("prediction", ""),
-        )
+        """Return the reasoning directly — the causal engine already built the text."""
+        return result.get("reasoning") or result.get("prediction", "")
 
     def _gen_abstract(self, result: dict) -> str:
         """Generate an abstract reasoning response."""

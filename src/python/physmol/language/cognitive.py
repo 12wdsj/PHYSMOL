@@ -209,6 +209,7 @@ class CognitiveInterface:
     def _handle_question(self, parsed: dict) -> dict:
         """Handle a question-type query."""
         tokens = parsed["tokens"]
+        orig_text = parsed["text"]
 
         # Check if it's asking about a specific object
         if parsed["matching_objects"]:
@@ -217,18 +218,20 @@ class CognitiveInterface:
             # Check for physics-related question
             physics_keywords = {"what happen", "what if", "fall", "drop", "roll",
                                 "bounce", "move", "fast", "slow", "heavy"}
-            is_physics_q = any(kw in " ".join(tokens) for kw in physics_keywords)
+            zh_physics_keywords = {"下落", "掉落", "弹跳", "滚动", "移动", "碰撞", "摩擦"}
+            is_physics_q = (any(kw in " ".join(tokens) for kw in physics_keywords)
+                           or any(kw in orig_text for kw in zh_physics_keywords))
 
             if is_physics_q:
                 # Use reasoning engine for physics prediction
                 context = {}
-                if "drop" in tokens or "fall" in tokens:
+                if "drop" in tokens or "fall" in tokens or "下落" in orig_text:
                     context["action"] = "drop"
-                elif "push" in tokens:
+                elif "push" in tokens or "推" in orig_text:
                     context["action"] = "push"
-                elif "roll" in tokens:
+                elif "roll" in tokens or "滚" in orig_text:
                     context["action"] = "roll"
-                elif "collide" in tokens or "hit" in tokens:
+                elif "collide" in tokens or "hit" in tokens or "碰撞" in orig_text:
                     context["action"] = "collide"
 
                 prediction = self.reasoning_engine.predict(
@@ -248,6 +251,26 @@ class CognitiveInterface:
             if token in self.reasoning_engine._physics_rules:
                 return self.reasoning_engine.explain_concept(token)
 
+        # Check Chinese physics concepts in full text
+        code_concepts = {"quicksort", "merge sort", "heap sort", "binary search",
+                         "bfs", "dfs", "dynamic programming", "linked list",
+                         "stack", "queue", "graph", "recursion", "dijkstra",
+                         "binary tree", "hash map", "lru cache"}
+        for concept in sorted(_ZH_EN_MAP.keys(), key=len, reverse=True):
+            if concept in orig_text:
+                mapped = _ZH_EN_MAP[concept]
+                if mapped in code_concepts:
+                    result = self.reasoning_engine.explain_code_concept(mapped)
+                else:
+                    result = self.reasoning_engine.explain_concept(mapped)
+                result["concept"] = concept
+                return result
+
+        # Try learned concepts
+        for known_term, learned in self.knowledge._learned.items():
+            if known_term in orig_text:
+                return self._explain_learned_concept(learned)
+
         return {"prediction": "I'm not sure what you're asking about. Could you be more specific?"}
 
     def _handle_command(self, parsed: dict) -> dict:
@@ -257,25 +280,93 @@ class CognitiveInterface:
     def _handle_explanation(self, parsed: dict) -> dict:
         """Handle an explanation request."""
         tokens = parsed["tokens"]
+        text = parsed["text"].lower()
 
         # Find the concept to explain
         concept_keywords = ["elasticity", "gravity", "friction", "momentum",
                             "energy", "inertia", "force", "bounce", "collision"]
+        # Add Chinese physics concepts (use full text matching, not token matching,
+        # because the tokenizer splits Chinese characters individually)
+        zh_concept_keywords = [
+            "重力", "引力", "动量", "能量", "摩擦", "摩擦力", "弹性", "惯性", "力",
+            "动量守恒", "动量守恒定律", "能量守恒", "能量守恒定律",
+            "牛顿第一定律", "牛顿第二定律", "牛顿第三定律", "牛顿定律", "牛顿",
+            "万有引力", "弹性碰撞", "非弹性碰撞", "碰撞", "加速度", "速度",
+            "质量", "势能", "动能", "重力势能", "热力学", "守恒定律",
+        ]
+        # Match against tokens (for English) and full text (for Chinese compounds)
         for token in tokens:
             if token in concept_keywords:
                 return self.reasoning_engine.explain_concept(token)
 
-        # Check for compound concepts
+        # Check Chinese concepts against the FULL original text (not tokens)
+        # Sort by length descending so longer/more specific concepts match first
+        orig_text = parsed["text"]
+        for concept in sorted(zh_concept_keywords, key=len, reverse=True):
+            if concept in orig_text:
+                # Map Chinese concept to English for reasoning engine
+                mapped = _zh_to_en_concept(concept)
+                result = self.reasoning_engine.explain_concept(mapped)
+                # Override concept name to show the original Chinese term
+                result["concept"] = concept
+                return result
+
+        # Check English compound concepts in full text
         text_lower = " ".join(tokens)
         for concept in concept_keywords:
             if concept in text_lower:
                 return self.reasoning_engine.explain_concept(concept)
+
+        # Check learned concepts from KnowledgeAcquisition
+        for token in tokens:
+            if len(token) >= 2:
+                concept = self.knowledge.get_concept(token)
+                if concept is not None:
+                    return self._explain_learned_concept(concept)
+
+        # Try partial matching against learned concepts using full text
+        for known_term, learned in self.knowledge._learned.items():
+            if known_term in orig_text or orig_text in known_term:
+                return self._explain_learned_concept(learned)
+
+        # Check code concepts via _ZH_EN_MAP
+        code_concepts = {"quicksort", "merge sort", "heap sort", "binary search",
+                         "bfs", "dfs", "dynamic programming", "linked list",
+                         "stack", "queue", "graph", "recursion", "dijkstra",
+                         "binary tree", "hash map", "lru cache"}
+        for concept in sorted(_ZH_EN_MAP.keys(), key=len, reverse=True):
+            if concept in orig_text:
+                mapped = _ZH_EN_MAP[concept]
+                if mapped in code_concepts:
+                    result = self.reasoning_engine.explain_code_concept(mapped)
+                    result["concept"] = concept
+                    return result
+
+        # Try partial matching against learned concepts using tokens
+        for token in tokens:
+            if len(token) >= 2:
+                for known_term in self.knowledge._learned:
+                    if token in known_term or known_term in token:
+                        return self._explain_learned_concept(self.knowledge._learned[known_term])
 
         return {"concept": "unknown", "explanation": {
             "definition": "I'm not sure which concept you'd like me to explain.",
             "physics": "Try asking about: elasticity, gravity, friction, momentum, energy, inertia, or force.",
             "examples": [],
         }}
+
+    def _explain_learned_concept(self, concept) -> dict:
+        """Generate explanation from a learned concept."""
+        explanation = {
+            "definition": concept.definition or f"{concept.term} is a {concept.category} concept.",
+            "physics": "",
+            "examples": concept.examples or [],
+        }
+        return {
+            "concept": concept.term,
+            "explanation": explanation,
+            "related_objects": [],
+        }
 
     def _handle_counterfactual(self, parsed: dict) -> dict:
         """Handle a counterfactual question."""
@@ -310,9 +401,8 @@ class CognitiveInterface:
                 change = change_keywords[token]
                 break
 
-        # Check for "what if" pattern
-        if "what if" in text.lower():
-            # Extract the part after "what if"
+        # "what if" branch: only use raw text if structured extraction found nothing
+        if change == "a property" and "what if" in text.lower():
             idx = text.lower().index("what if") + len("what if")
             change = text[idx:].strip().rstrip("?")
 
@@ -584,3 +674,34 @@ class CognitiveInterface:
         # Default: extract the last meaningful word
         words = lower.split()
         return words[-1] if words else "unknown"
+
+
+# ---------------------------------------------------------------------------
+# Chinese-to-English concept mapping (shared helper)
+# ---------------------------------------------------------------------------
+
+_ZH_EN_MAP = {
+    "重力": "gravity", "引力": "gravity", "万有引力": "gravity",
+    "下落": "gravity", "掉落": "gravity",
+    "动量": "momentum", "动量守恒": "momentum", "动量守恒定律": "momentum",
+    "能量": "energy", "能量守恒": "energy", "能量守恒定律": "energy",
+    "重力势能": "energy", "势能": "energy", "动能": "energy", "热力学": "energy",
+    "摩擦": "friction", "摩擦力": "friction",
+    "弹性": "elasticity", "弹性碰撞": "elasticity",
+    "惯性": "inertia", "质量": "inertia", "牛顿第一定律": "inertia",
+    "力": "force", "牛顿第二定律": "force", "牛顿第三定律": "force",
+    "牛顿定律": "force", "加速度": "force",
+    "速度": "momentum", "碰撞": "collision", "非弹性碰撞": "collision",
+    "守恒定律": "energy",
+    # Code concepts (for question-path matching)
+    "快速排序": "quicksort", "快排": "quicksort",
+    "归并排序": "merge sort", "堆排序": "heap sort",
+    "二分查找": "binary search", "动态规划": "dynamic programming",
+    "广度优先搜索": "bfs", "深度优先搜索": "dfs",
+    "递归": "recursion", "冒泡排序": "quicksort",
+}
+
+
+def _zh_to_en_concept(concept: str) -> str:
+    """Map a Chinese concept term to its English equivalent for reasoning engine."""
+    return _ZH_EN_MAP.get(concept, concept.lower())

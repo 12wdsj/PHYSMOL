@@ -7,6 +7,10 @@ dist/
 *.o
 *.a
 *.dylib
+*.obj
+*.lib
+*.exp
+*.zip
 
 # Test binaries
 test_vsa
@@ -31,3 +35,17 @@ Thumbs.db
 # L3 memory storage
 *.dat
 .codegraph/
+
+# Local training artifacts
+checkpoints/evolution/
+training_data/
+training_progress/
+training_log.txt
+*.jsonl
+
+# Claude Code local config
+.claude/
+.mcp.json
+
+# Local batch scripts
+*.bat
